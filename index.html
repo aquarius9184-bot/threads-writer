@@ -119,11 +119,6 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .keybox summary em{font-style:normal;font-weight:400}
 .keybox .field{margin-top:10px}
 .prompt-box{white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:320px;overflow:auto}
-details.guide summary{cursor:pointer;font-weight:600;font-size:14px}
-details.guide table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-details.guide td,details.guide th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
-details.guide th{color:var(--muted);font-weight:600;font-size:12px}
-.tbl{overflow-x:auto}
 .mobile-only{display:none}
 /* 휴대폰: 구조 목록 접기, '글 쓰기' 버튼은 화면 아래에 고정, iOS 확대 방지용 16px 입력 */
 @media (max-width:900px){
@@ -223,11 +218,9 @@ details.guide th{color:var(--muted);font-weight:600;font-size:12px}
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" id="tabNew" aria-selected="true">새 글</button>
         <button class="tab" role="tab" id="tabSaved" aria-selected="false">보관함<span class="n" id="savedN">0</span></button>
-        <button class="tab" role="tab" id="tabGuide" aria-selected="false">구조 가이드</button>
       </div>
       <div class="feed" id="feed"></div>
       <div class="feed" id="saved" hidden></div>
-      <div id="guide" hidden></div>
     </section>
   </div>
 </div>
@@ -495,7 +488,7 @@ function makeCard(p, opts={}){
 function isSaved(p){return !!p.key && state.saved.some(x=>x.key===p.key)}
 
 /* ---------- 탭 ---------- */
-const TABS={tabNew:"#feed",tabSaved:"#saved",tabGuide:"#guide"};
+const TABS={tabNew:"#feed",tabSaved:"#saved"};
 for(const id of Object.keys(TABS)){
   $("#"+id).onclick=()=>{
     for(const [t,sel] of Object.entries(TABS)){ $("#"+t).setAttribute("aria-selected",String(t===id)); $(sel).hidden = t!==id; }
@@ -508,24 +501,6 @@ function renderSaved(){
   const box=$("#saved"); box.textContent=""; updSavedN();
   if(!state.saved.length){const e=document.createElement("div");e.className="empty";e.textContent="보관한 글이 여기 모여요. 결과 카드에서 ‘보관’을 누르세요.";box.append(e);return}
   for(const p of state.saved) box.append(makeCard(p,{savedView:true,onEdit:()=>store.set("tw_saved",state.saved)}));
-}
-function renderGuide(){
-  const g=$("#guide");
-  const det=document.createElement("details"); det.className="guide card"; det.open=true;
-  const sm=document.createElement("summary"); sm.textContent="반응별로 잘 되는 구조"; det.append(sm);
-  const wrap=document.createElement("div"); wrap.className="tbl";
-  const tb=document.createElement("table");
-  tb.innerHTML="<thead><tr><th>구조</th><th>공식</th><th>실제 사례</th></tr></thead>";
-  const body=document.createElement("tbody");
-  STRUCTS.forEach((s,i)=>{
-    const tr=document.createElement("tr");
-    for(const v of [String(i+1).padStart(2,"0")+" "+s.name, s.formula, s.example]){const td=document.createElement("td");td.textContent=v;tr.append(td)}
-    body.append(tr);
-  });
-  tb.append(body); wrap.append(tb); det.append(wrap);
-  const p=document.createElement("p"); p.className="hint";
-  p.textContent="조회수만 높고 반응 없는 글의 공통점: 호기심만 주고 얻을 게 없음. 읽고 나서 얻는 게 있거나, 하고 싶은 말이 생겨야 반응이 나와요.";
-  det.append(p); g.append(det);
 }
 
 /* ---------- 생성 ---------- */
@@ -666,7 +641,7 @@ const EXAMPLES=[
    reply:"솔직히 처음엔 하나하나 손으로 쓰다가 [몇 시]까지 붙잡고 있었어요\n\n요즘은 AI로 초안 뽑고 말투만 고쳐요\n\n다른 사장님들은 어떻게 하세요?",
    why:"누구나 숫자로 답할 수 있는 질문이라 답글이 달리기 쉬워요."},
 ];
-loadCfg(); renderGoals(); renderStructs(); renderGuide(); updSavedN();
+loadCfg(); renderGoals(); renderStructs(); updSavedN();
 for(const ex of EXAMPLES) $("#feed").append(makeCard(ex));
 const lastTab=store.get("tw_tab","tabNew"); if(TABS[lastTab]&&lastTab!=="tabNew") $("#"+lastTab).click();
 </script>
