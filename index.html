@@ -124,6 +124,19 @@ details.guide table{width:100%;border-collapse:collapse;font-size:13px;margin-to
 details.guide td,details.guide th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
 details.guide th{color:var(--muted);font-weight:600;font-size:12px}
 .tbl{overflow-x:auto}
+.mobile-only{display:none}
+/* 휴대폰: 구조 목록 접기, '글 쓰기' 버튼은 화면 아래에 고정, iOS 확대 방지용 16px 입력 */
+@media (max-width:900px){
+  input[type=text],input[type=password],textarea,select{font-size:16px}
+  .mobile-only{display:inline-block}
+  .st small{display:none}
+  .st{padding:10px 12px}
+  .structs.collapsed .st[aria-pressed=false]:not(.isrec){display:none}
+  .gobar{position:sticky;bottom:0;z-index:2;background:var(--surface);border-top:1px solid var(--line);
+    margin:0 -18px -18px;padding:10px 18px calc(10px + env(safe-area-inset-bottom,0px));border-radius:0 0 var(--r) var(--r)}
+  .btn.small{padding:8px 12px}
+  .card-foot .btn.small{flex:1 1 auto}
+}
 @media (prefers-reduced-motion:no-preference){.card.new{animation:rise .35s ease-out}}
 @keyframes rise{from{transform:translateY(6px);opacity:.4}to{transform:none;opacity:1}}
 </style>
@@ -175,6 +188,7 @@ details.guide th{color:var(--muted);font-weight:600;font-size:12px}
       <div class="field">
         <span class="label">구조 <em>(여러 개 선택 가능)</em></span>
         <div class="structs" id="structs"></div>
+        <button type="button" class="btn small mobile-only" id="moreStructs">구조 12개 모두 보기</button>
       </div>
 
       <div class="field">
@@ -196,11 +210,13 @@ details.guide th{color:var(--muted);font-weight:600;font-size:12px}
         </div>
       </details>
 
-      <div class="actions">
-        <button type="submit" class="btn primary" id="go">글 쓰기</button>
-        <button type="button" class="btn" id="stop" hidden>멈추기</button>
+      <div class="gobar">
+        <div class="actions">
+          <button type="submit" class="btn primary" id="go">글 쓰기</button>
+          <button type="button" class="btn" id="stop" hidden>멈추기</button>
+        </div>
+        <p class="status" id="status" role="status"></p>
       </div>
-      <p class="status" id="status" role="status"></p>
     </form>
 
     <section class="results" aria-label="결과">
@@ -276,6 +292,7 @@ const state = {
   tone:"반말",
   goal:null,
   picked:new Set(["beforeafter","openq"]),
+  showAll:false,
   saved:store.get("tw_saved",[]),
 };
 
@@ -299,7 +316,7 @@ function renderStructs(){
   const rec = state.goal ? GOALS.find(g=>g.id===state.goal).rec : [];
   STRUCTS.forEach((s,i)=>{
     const b=document.createElement("button");
-    b.type="button"; b.className="st";
+    b.type="button"; b.className="st"+(rec.includes(s.id)?" isrec":"");
     b.setAttribute("aria-pressed", String(state.picked.has(s.id)));
     const no=document.createElement("span"); no.className="no"; no.textContent=String(i+1).padStart(2,"0");
     const tx=document.createElement("span");
@@ -313,7 +330,12 @@ function renderStructs(){
     };
     box.append(b);
   });
+  box.classList.toggle("collapsed",!state.showAll);
+  $("#moreStructs").textContent = state.showAll ? "고른 구조만 보기" : "구조 12개 모두 보기";
 }
+$("#moreStructs").onclick=()=>{state.showAll=!state.showAll;renderStructs()};
+const isNarrow=()=>matchMedia("(max-width:900px)").matches;
+const toResults=()=>{ if(isNarrow()) document.querySelector(".results").scrollIntoView({behavior:"smooth",block:"start"}) };
 $("#tone").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   state.tone=b.dataset.v;
@@ -597,14 +619,14 @@ $("#form").addEventListener("submit",async e=>{
   $("#tabNew").click();
   const prompt=buildPrompt(c,ids,c.count);
   const sample=await getSample();
-  if(!sample){status("");$("#keybox").open=true;showFallback(prompt,"API 키를 넣으면 이 화면에서 바로 써줘요. 키가 없으면 아래 프롬프트를 복사해서 Claude나 ChatGPT 채팅에 붙여넣으세요. 한 줄에 글 하나씩 결과가 나와요.");return}
+  if(!sample){status("");$("#keybox").open=true;setTimeout(toResults,0);showFallback(prompt,"API 키를 넣으면 이 화면에서 바로 써줘요. 키가 없으면 아래 프롬프트를 복사해서 Claude나 ChatGPT 채팅에 붙여넣으세요. 한 줄에 글 하나씩 결과가 나와요.");return}
 
   const feed=$("#feed");
   for(const ex of feed.querySelectorAll(".card")) if(ex.querySelector(".example")) ex.remove();
   const anchor=document.createElement("div"); feed.prepend(anchor);
   let pending="", n=0; const total=ids.length*c.count;
   const add=o=>{ if(!o) return; n++; anchor.before(makeCard(o,{fresh:true})); status(`${n} / ${total}개 쓰는 중…`) };
-  ctl=new AbortController(); setBusy(true); status("구조 읽는 중… (보통 20~60초)");
+  ctl=new AbortController(); setBusy(true); status("구조 읽는 중… (보통 20~60초)"); toResults();
   try{
     await sample(prompt,{signal:ctl.signal,cache:false,onText:({delta})=>{
       const lines=(pending+delta).split("\n"); pending=lines.pop();
