@@ -53,7 +53,7 @@ h1 .slash{color:var(--accent)}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .label{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--muted)}
 .label em{font-style:normal;font-weight:400;letter-spacing:0}
-input[type=text],textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+input[type=text],input[type=email],input[type=password],textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
 textarea{resize:vertical;min-height:64px}
 input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -115,14 +115,13 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .ck.warn{background:var(--warn-soft);color:var(--warn)}
 .card-foot{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line);padding-top:10px}
 .keybox{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-.keybox summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
-.keybox summary em{font-style:normal;font-weight:400}
-.keybox .field{margin-top:10px}
+.acct-line{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px;word-break:break-all}
+a.btn{text-decoration:none;display:inline-block}
 .prompt-box{white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:320px;overflow:auto}
 .mobile-only{display:none}
 /* 휴대폰: 구조 목록 접기, '글 쓰기' 버튼은 화면 아래에 고정, iOS 확대 방지용 16px 입력 */
 @media (max-width:900px){
-  input[type=text],input[type=password],textarea,select{font-size:16px}
+  input[type=text],input[type=email],input[type=password],textarea,select{font-size:16px}
   .mobile-only{display:inline-block}
   .st small{display:none}
   .st{padding:10px 12px}
@@ -195,15 +194,26 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
         </select>
       </div>
 
-      <details class="keybox" id="keybox">
-        <summary>API 키로 바로 생성 <em>(선택)</em></summary>
-        <div class="field">
-          <label class="label" for="apikey">Anthropic API 키</label>
-          <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
-          <p class="hint">키는 이 브라우저에만 저장되고 Anthropic으로만 보내져요. 사용료는 키 주인에게 청구돼요. 키가 없으면 ‘글 쓰기’를 눌러 나오는 프롬프트를 Claude나 ChatGPT 채팅에 붙여넣으면 돼요.</p>
-          <div class="actions"><button type="button" class="btn small" id="forget">키 지우기</button></div>
+      <div class="keybox" id="acct">
+        <div class="field" id="acctOut">
+          <span class="label">로그인</span>
+          <input type="email" id="email" placeholder="이메일" autocomplete="email" spellcheck="false">
+          <input type="password" id="pw" placeholder="비밀번호 (6자 이상)" autocomplete="current-password">
+          <div class="actions">
+            <button type="button" class="btn small" id="login">로그인</button>
+            <button type="button" class="btn small" id="signup">회원가입</button>
+          </div>
+          <p class="hint">회원가입 후 관리자가 승인하면 하루 정해진 횟수만큼 쓸 수 있어요.</p>
         </div>
-      </details>
+        <div class="field" id="acctIn" hidden>
+          <div class="acct-line"><b id="acctEmail"></b><span class="ck" id="acctState"></span></div>
+          <p class="hint" id="acctNote"></p>
+          <div class="actions">
+            <a class="btn small" id="adminLink" href="admin.html" hidden>관리자 화면</a>
+            <button type="button" class="btn small" id="logout">로그아웃</button>
+          </div>
+        </div>
+      </div>
 
       <div class="gobar">
         <div class="actions">
@@ -225,6 +235,7 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 const STRUCTS = [
   {id:"beforeafter", name:"하지 마세요 → 대신 이렇게", short:"흔한 행동 지적 + 대안 프롬프트/방법 n개",
@@ -514,26 +525,32 @@ const ERR={
   empty_completion:"답이 비어 있어요. 구조 수를 줄여서 다시 해보세요.",
   prompt_too_large:"입력이 너무 길어요. 경험·수치를 줄여주세요.",
 };
-ERR.bad_key="API 키가 맞지 않아요. 키를 다시 확인해주세요.";
-ERR.no_credit="API 크레딧이 부족해요. Anthropic 콘솔에서 결제 상태를 확인해주세요.";
-ERR.network="연결하지 못했어요. 인터넷 연결과 API 키를 확인해주세요.";
-const errText=e=>ERR[e?.code]||(e?.code==="api_error"&&e.message?"API 오류: "+e.message:"연결이 끊겼어요. 다시 눌러주세요.");
+ERR.not_approved="아직 승인 전이에요. 관리자가 승인하면 바로 쓸 수 있어요.";
+ERR.no_server_key="서버에 API 키가 아직 등록되지 않았어요. 관리자에게 알려주세요.";
+ERR.network="서버에 연결하지 못했어요. 인터넷 연결을 확인해주세요.";
+ERR.session_expired="로그인이 만료됐어요. 다시 로그인해주세요.";
+const errText=e=>e?.code==="limit"?`오늘 쓸 수 있는 ${e.limit??""}회를 다 썼어요. 내일 다시 쓸 수 있어요.`:(ERR[e?.code]||"연결이 끊겼어요. 다시 눌러주세요.");
 
-/* claude.ai 안에서는 Claude 기능, 밖(GitHub Pages 등)에서는 API 키로 생성 */
-const MODEL="claude-sonnet-5-5";
-function apiSample(key){
+/* claude.ai 안에서는 Claude 기능, 밖(GitHub Pages)에서는 로그인 + 승인된 회원만 서버를 거쳐 생성 */
+const SUPABASE_URL="https://baigxzjlayupkchbmxge.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhaWd4empsYXl1cGtjaGJteGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MDU2MTMsImV4cCI6MjEwNzk4MTYxM30.VwNiMQPVjw3hcb_WKQP_EpNGjXhxmwJvBj_MF-D-ojQ";
+let sb=null, session=null, me=null;
+
+function serverSample(){
   return async (prompt,{signal,onText}={})=>{
     let res;
     try{
-      res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,
-        headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify({model:MODEL,max_tokens:8000,stream:true,messages:[{role:"user",content:prompt}]})});
+      res=await fetch(SUPABASE_URL+"/functions/v1/generate",{method:"POST",signal,
+        headers:{"content-type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+session.access_token},
+        body:JSON.stringify({prompt})});
     }catch(e){ throw {code:e?.name==="AbortError"?"cancelled":"network"} }
     if(!res.ok){
-      let msg=""; try{msg=(await res.json()).error?.message||""}catch{}
-      const code=res.status===401||res.status===403?"bad_key":res.status===429?"rate_limited":res.status>=500?"upstream_error":/credit|billing/i.test(msg)?"no_credit":"api_error";
-      throw {code,message:msg};
+      let b={}; try{b=await res.json()}catch{}
+      refreshMe();
+      throw {code:b.code||(res.status===401?"session_expired":"upstream_error"),limit:b.limit};
     }
+    const lim=res.headers.get("x-quota-limit"), used=res.headers.get("x-quota-used");
+    if(me&&lim){me.used=Number(used);me.limit=Number(lim);renderAcct()}
     const reader=res.body.getReader(), dec=new TextDecoder();
     let buf="", text="", stop="";
     try{
@@ -562,13 +579,64 @@ async function getSample(){
   let s=null;
   try{ if(window.claude) s=await window.claude.use("sample") }catch{}
   if(s) return s;
-  const k=$("#apikey").value.trim();
-  return k?apiSample(k):null;
+  return (sb&&session&&me?.approved)?serverSample():null;
 }
-$("#apikey").value=store.get("tw_key","");
-$("#apikey").addEventListener("input",e=>store.set("tw_key",e.target.value.trim()));
-$("#forget").onclick=()=>{$("#apikey").value="";try{localStorage.removeItem("tw_key")}catch{};status("API 키를 지웠어요.")};
-if(window.claude){ window.claude.use("sample").then(s=>{ if(s) $("#keybox").hidden=true }).catch(()=>{}) }
+
+/* ---------- 회원 ---------- */
+function renderAcct(){
+  $("#acctOut").hidden=!!session; $("#acctIn").hidden=!session;
+  if(!session) return;
+  $("#acctEmail").textContent=session.user?.email||"";
+  const st=$("#acctState"), note=$("#acctNote");
+  if(!me){st.className="ck";st.textContent="확인 중";note.textContent="";}
+  else if(me.approved){st.className="ck ok";st.textContent=`오늘 ${me.used} / ${me.limit}회`;note.textContent=me.used>=me.limit?"오늘 횟수를 다 썼어요. 한국 시간 자정에 다시 채워져요.":"";}
+  else{st.className="ck warn";st.textContent="승인 대기";note.textContent="관리자가 승인하면 바로 쓸 수 있어요. 승인 소식을 들으면 새로고침해주세요.";}
+  $("#adminLink").hidden=!me?.is_admin;
+}
+async function refreshMe(){
+  if(!sb||!session){me=null;renderAcct();return}
+  const {data,error}=await sb.rpc("my_status");
+  me=error?null:data; renderAcct();
+}
+const AUTH_ERR=m=>/Invalid login/i.test(m)?"이메일이나 비밀번호가 맞지 않아요."
+  :/not confirmed/i.test(m)?"이메일 인증을 먼저 해주세요. 받은편지함(스팸함 포함)을 확인하세요."
+  :/already registered/i.test(m)?"이미 가입된 이메일이에요. 로그인해주세요."
+  :/at least 6|Password should/i.test(m)?"비밀번호는 6자 이상이어야 해요."
+  :/rate limit|too many/i.test(m)?"요청이 너무 많아요. 잠시 뒤 다시 해주세요."
+  :/valid email|invalid format/i.test(m)?"이메일 형식을 확인해주세요."
+  :"문제가 생겼어요: "+m;
+function creds(){
+  const email=$("#email").value.trim(), password=$("#pw").value;
+  if(!email||!password){status("이메일과 비밀번호를 입력해주세요.",true);return null}
+  return {email,password};
+}
+function initAuth(){
+  if(!window.supabase||SUPABASE_URL.startsWith("__")){$("#acct").hidden=true;return}
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange((_e,s)=>{const changed=(s?.user?.id)!==(session?.user?.id);session=s;if(changed) refreshMe();else renderAcct()});
+  sb.auth.getSession().then(({data})=>{session=data.session;refreshMe()});
+  $("#login").onclick=async()=>{
+    const c=creds(); if(!c) return;
+    $("#login").disabled=true;
+    const {error}=await sb.auth.signInWithPassword(c);
+    $("#login").disabled=false;
+    if(error) status(AUTH_ERR(error.message),true); else {status("로그인했어요.");$("#pw").value=""}
+  };
+  $("#signup").onclick=async()=>{
+    const c=creds(); if(!c) return;
+    $("#signup").disabled=true;
+    const {data,error}=await sb.auth.signUp({...c,options:{emailRedirectTo:location.origin+location.pathname}});
+    $("#signup").disabled=false;
+    if(error) status(AUTH_ERR(error.message),true);
+    else if(!data.session) status("인증 메일을 보냈어요. 메일의 링크를 누르면 가입이 끝나요. 그다음 관리자 승인을 기다려주세요.");
+    else status("가입했어요. 관리자가 승인하면 쓸 수 있어요.");
+  };
+  $("#logout").onclick=async()=>{await sb.auth.signOut();status("로그아웃했어요.")};
+  $("#pw").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#login").click()}});
+  $("#email").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#pw").focus()}});
+}
+initAuth();
+if(window.claude){ window.claude.use("sample").then(s=>{ if(s) $("#acct").hidden=true }).catch(()=>{}) }
 function setBusy(b){$("#go").disabled=b;$("#stop").hidden=!b}
 function status(t,err){const s=$("#status");s.textContent=t;s.classList.toggle("err",!!err)}
 function parseLine(line){
@@ -594,7 +662,15 @@ $("#form").addEventListener("submit",async e=>{
   $("#tabNew").click();
   const prompt=buildPrompt(c,ids,c.count);
   const sample=await getSample();
-  if(!sample){status("");$("#keybox").open=true;setTimeout(toResults,0);showFallback(prompt,"API 키를 넣으면 이 화면에서 바로 써줘요. 키가 없으면 아래 프롬프트를 복사해서 Claude나 ChatGPT 채팅에 붙여넣으세요. 한 줄에 글 하나씩 결과가 나와요.");return}
+  if(!sample){
+    if(sb){
+      if(!session){status("로그인하면 쓸 수 있어요. 처음이면 회원가입부터 해주세요.",true);$("#email").focus()}
+      else if(!me) {status("회원 정보를 확인하는 중이에요. 잠시 뒤 다시 눌러주세요.",true);refreshMe()}
+      else status(ERR.not_approved,true);
+      return;
+    }
+    status("");setTimeout(toResults,0);showFallback(prompt,"이 화면에서는 바로 쓸 수 없어요. 아래 프롬프트를 복사해서 Claude 채팅에 붙여넣으세요.");return;
+  }
 
   const feed=$("#feed");
   for(const ex of feed.querySelectorAll(".card")) if(ex.querySelector(".example")) ex.remove();

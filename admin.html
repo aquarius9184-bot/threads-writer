@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>작성기 회원 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Gothic+A1:wght@900&display=swap">
+<style>
+/* Layout: 한 줄 요약(대기/승인 수) → 회원 표. 승인 대기가 맨 위 */
+:root{
+  --bg:#F3F5F4;--surface:#FFFFFF;--ink:#16201D;--muted:#5D6B66;--line:#D9E0DD;
+  --accent:#0E7C61;--accent-ink:#FFFFFF;--accent-soft:#E2F2EC;--warn:#9A5B00;--warn-soft:#FFF2DC;--bad:#B3261E;--chip:#EBEFED;
+  --font-display:"Gothic A1","IBM Plex Sans KR",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#101614;--surface:#18201D;--ink:#E6EEEB;--muted:#97A6A0;--line:#2B3632;
+  --accent:#3FC79F;--accent-ink:#06231A;--accent-soft:#16352B;--warn:#F2B255;--warn-soft:#3A2B12;--bad:#FF8A80;--chip:#222C28;color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6}
+.wrap{max-width:900px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--font-display);font-weight:900;font-size:clamp(24px,4vw,30px);margin:0;letter-spacing:-.02em}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px}
+input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{font:inherit;font-weight:600;border-radius:8px;padding:8px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;display:inline-block}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.55;cursor:default}
+.muted{color:var(--muted);font-size:13px;margin:0}
+.status{font-size:13px;color:var(--muted);min-height:1.4em;margin:0}
+.status.err{color:var(--bad)}
+.summary{display:flex;gap:8px;flex-wrap:wrap}
+.pill{font-size:13px;border-radius:999px;padding:3px 12px;background:var(--chip);color:var(--muted)}
+.pill b{font-family:var(--font-mono);font-weight:500;color:var(--ink);margin-left:4px}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.list{display:flex;flex-direction:column;gap:8px}
+.user{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center}
+.user.pending{border-color:var(--warn)}
+.who{min-width:0}
+.who b{display:block;word-break:break-all;font-weight:600}
+.who small{color:var(--muted);font-size:12px;font-family:var(--font-mono)}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.ctrl label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.ctrl input{width:64px;padding:6px 8px;font-family:var(--font-mono)}
+.tag{font-size:12px;font-weight:600;border-radius:6px;padding:2px 8px}
+.tag.ok{background:var(--accent-soft);color:var(--accent)}
+.tag.wait{background:var(--warn-soft);color:var(--warn)}
+.tag.adm{background:var(--chip);color:var(--muted)}
+@media (max-width:600px){.user{grid-template-columns:minmax(0,1fr)}.ctrl{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>작성기 회원 관리</h1>
+    <a class="btn" href="./">작성기로 돌아가기</a>
+  </div>
+
+  <form class="box" id="loginBox" hidden>
+    <p class="muted">관리자 계정으로 로그인하세요.</p>
+    <input type="email" id="email" placeholder="이메일" autocomplete="email">
+    <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password">
+    <div><button class="btn primary" type="submit">로그인</button></div>
+  </form>
+
+  <div id="panel" hidden>
+    <div class="box">
+      <div class="summary" id="summary"></div>
+      <p class="muted">승인하면 바로 쓸 수 있어요. 하루 한도는 한국 시간 자정에 다시 채워져요. 한도를 0으로 두면 승인 상태여도 쓸 수 없어요.</p>
+    </div>
+    <div class="list" id="list" style="margin-top:12px"></div>
+  </div>
+
+  <p class="status" id="status" role="status"></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL="https://baigxzjlayupkchbmxge.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhaWd4empsYXl1cGtjaGJteGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MDU2MTMsImV4cCI6MjEwNzk4MTYxM30.VwNiMQPVjw3hcb_WKQP_EpNGjXhxmwJvBj_MF-D-ojQ";
+const $=s=>document.querySelector(s);
+const status=(t,err)=>{const s=$("#status");s.textContent=t;s.classList.toggle("err",!!err)};
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul"}).format(new Date());
+
+async function load(){
+  const {data:me}=await sb.rpc("my_status");
+  if(!me?.is_admin){ $("#panel").hidden=true; $("#loginBox").hidden=false; status("관리자 계정이 아니에요. 관리자 이메일로 로그인해주세요.",true); return }
+  $("#loginBox").hidden=true; $("#panel").hidden=false;
+  const [{data:users,error},{data:usage}]=await Promise.all([
+    sb.from("profiles").select("id,email,approved,is_admin,daily_limit,created_at").order("created_at",{ascending:false}),
+    sb.from("usage").select("user_id,count").eq("day",today()),
+  ]);
+  if(error){status("회원 목록을 불러오지 못했어요: "+error.message,true);return}
+  const used=Object.fromEntries((usage||[]).map(u=>[u.user_id,u.count]));
+  users.sort((a,b)=>(a.approved-b.approved)||(b.created_at>a.created_at?1:-1));
+  const pend=users.filter(u=>!u.approved).length;
+  const sm=$("#summary"); sm.textContent="";
+  for(const [t,n,c] of [["승인 대기",pend,pend?"warn":""],["승인됨",users.length-pend,""],["전체",users.length,""]]){
+    const p=document.createElement("span");p.className="pill "+c;p.textContent=t;const b=document.createElement("b");b.textContent=n;p.append(b);sm.append(p);
+  }
+  const list=$("#list"); list.textContent="";
+  for(const u of users) list.append(row(u,used[u.id]||0));
+  status("");
+}
+function row(u,usedToday){
+  const el=document.createElement("div"); el.className="user"+(u.approved?"":" pending");
+  const who=document.createElement("div"); who.className="who";
+  const b=document.createElement("b"); b.textContent=u.email;
+  const sm=document.createElement("small");
+  sm.textContent=`가입 ${new Date(u.created_at).toLocaleDateString("ko-KR")} · 오늘 ${usedToday}회 사용`;
+  who.append(b,sm);
+  const ctrl=document.createElement("div"); ctrl.className="ctrl";
+  const tag=document.createElement("span"); tag.className="tag "+(u.is_admin?"adm":u.approved?"ok":"wait");
+  tag.textContent=u.is_admin?"관리자":u.approved?"승인됨":"승인 대기";
+  const lab=document.createElement("label"); lab.textContent="하루";
+  const lim=document.createElement("input"); lim.type="number"; lim.min="0"; lim.max="500"; lim.value=u.daily_limit; lim.id="lim_"+u.id;
+  lim.setAttribute("aria-label",u.email+" 하루 한도");
+  lab.append(lim, document.createTextNode("회"));
+  const save=document.createElement("button"); save.className="btn"; save.type="button"; save.textContent="한도 저장";
+  save.onclick=()=>update(u.id,{daily_limit:Math.max(0,Math.round(Number(lim.value)||0))},save,"한도를 저장했어요.");
+  ctrl.append(tag,lab,save);
+  if(!u.is_admin){
+    const tog=document.createElement("button"); tog.type="button";
+    tog.className="btn"+(u.approved?"":" primary"); tog.textContent=u.approved?"승인 취소":"승인";
+    tog.onclick=()=>update(u.id,{approved:!u.approved},tog,u.approved?"승인을 취소했어요.":"승인했어요.");
+    ctrl.append(tog);
+  }
+  el.append(who,ctrl);
+  return el;
+}
+async function update(id,patch,btn,ok){
+  btn.disabled=true;
+  const {error}=await sb.from("profiles").update(patch).eq("id",id);
+  btn.disabled=false;
+  if(error){status("저장하지 못했어요: "+error.message,true);return}
+  status(ok); load();
+}
+$("#loginBox").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const {error}=await sb.auth.signInWithPassword({email:$("#email").value.trim(),password:$("#pw").value});
+  if(error){status(/Invalid login/i.test(error.message)?"이메일이나 비밀번호가 맞지 않아요.":error.message,true);return}
+  $("#pw").value=""; load();
+});
+sb.auth.getSession().then(({data})=>{ if(data.session) load(); else $("#loginBox").hidden=false });
+</script>
+</body>
+</html>

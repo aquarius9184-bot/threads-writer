@@ -9,12 +9,17 @@
 3. 원하는 반응을 고르면 추천 구조가 선택돼요. 직접 골라도 돼요.
 4. **글 쓰기**를 눌러요.
 
-## 글 생성 방식
+## 회원과 승인
 
-- **API 키가 있을 때:** 페이지의 "API 키로 바로 생성"에 Anthropic API 키를 넣으면 바로 써줘요. 키는 그 브라우저(localStorage)에만 저장되고 Anthropic API로만 보내져요. 사용료는 키 주인에게 청구돼요.
-- **API 키가 없을 때:** 완성된 프롬프트가 나와요. 복사해서 Claude나 ChatGPT 채팅에 붙여넣으면 돼요.
+- 이메일과 비밀번호로 회원가입 → 인증 메일 링크 클릭 → 관리자가 승인하면 사용할 수 있어요.
+- 승인된 회원은 하루 5회(한국 시간 자정에 초기화)까지 쓸 수 있어요. 관리자 화면에서 사람별로 바꿀 수 있어요.
+- 관리자 화면: `admin.html`
 
-공용 컴퓨터에서는 다 쓴 뒤 "키 지우기"를 눌러주세요.
+## 구조
+
+- 화면: GitHub Pages (`index.html`, `admin.html`)
+- 회원·승인·사용 횟수: Supabase Auth + Postgres (`supabase/migrations`)
+- Claude 호출: Supabase Edge Function `generate` (`supabase/functions/generate`). Anthropic API 키는 Supabase secret `ANTHROPIC_API_KEY`에만 있고 브라우저로 보내지지 않아요.
 
 ## 12가지 구조
 
