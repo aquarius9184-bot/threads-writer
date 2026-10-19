@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="원하는 반응을 고르면 반응이 실제로 나온 구조로 스레드 본문과 답글을 써주는 작성기">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>스레드 반응글 작성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Gothic+A1:wght@800;900&display=swap">
+<style>
+/* Layout: 왼쪽 설정 패널(넓은 화면에서 고정) + 오른쪽 결과 피드. 결과 카드는 스레드 본문/답글이 실제로 이어지는 모양 */
+:root{
+  --bg:#F3F5F4;
+  --surface:#FFFFFF;
+  --ink:#16201D;
+  --muted:#5D6B66;
+  --line:#D9E0DD;
+  --accent:#0E7C61;
+  --accent-ink:#FFFFFF;
+  --accent-soft:#E2F2EC;
+  --warn:#9A5B00;
+  --warn-soft:#FFF2DC;
+  --bad:#B3261E;
+  --chip:#EBEFED;
+  --font-display:"Gothic A1","IBM Plex Sans KR",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101614;--surface:#18201D;--ink:#E6EEEB;--muted:#97A6A0;--line:#2B3632;
+  --accent:#3FC79F;--accent-ink:#06231A;--accent-soft:#16352B;--warn:#F2B255;--warn-soft:#3A2B12;--bad:#FF8A80;--chip:#222C28;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101614;--surface:#18201D;--ink:#E6EEEB;--muted:#97A6A0;--line:#2B3632;
+  --accent:#3FC79F;--accent-ink:#06231A;--accent-soft:#16352B;--warn:#F2B255;--warn-soft:#3A2B12;--bad:#FF8A80;--chip:#222C28;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 24px;margin-bottom:22px}
+h1{font-family:var(--font-display);font-weight:900;font-size:clamp(26px,4vw,34px);letter-spacing:-.02em;line-height:1.15;margin:0;text-wrap:balance}
+h1 .slash{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+.basis{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+
+.grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:18px}
+@media (min-width:901px){.panel{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow:auto}}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.label{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--muted)}
+.label em{font-style:normal;font-weight:400;letter-spacing:0}
+input[type=text],textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:64px}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;padding:8px;font:inherit;font-size:14px;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;cursor:pointer;line-height:1.4}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+
+.structs{display:flex;flex-direction:column;gap:6px}
+.st{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;align-items:start;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;background:transparent;text-align:left;font:inherit;color:inherit}
+.st[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
+.st .no{font-family:var(--font-mono);font-size:12px;color:var(--muted);padding-top:2px}
+.st[aria-pressed=true] .no{color:var(--accent);font-weight:500}
+.st b{font-weight:600;font-size:14px;display:block}
+.st small{display:block;color:var(--muted);font-size:12px;line-height:1.45}
+.st .rec{display:inline-block;margin-left:6px;font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.02em}
+
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:600;border-radius:8px;padding:10px 16px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);flex:1;min-width:140px}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.small{padding:5px 10px;font-size:13px;font-weight:500}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.status{font-size:13px;color:var(--muted);min-height:1.4em;margin:0}
+.status.err{color:var(--bad)}
+
+/* 결과 */
+.results{display:flex;flex-direction:column;gap:16px;min-width:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tab{border:0;background:transparent;font:inherit;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .n{font-family:var(--font-mono);font-weight:400;font-size:12px;margin-left:4px}
+.feed{display:flex;flex-direction:column;gap:16px}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 12px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card-head{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.badge{font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:2px 8px}
+.tagline{font-size:12px;color:var(--muted)}
+.example{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:2px 7px}
+.thread{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:10px}
+.thread .rail{display:flex;flex-direction:column;align-items:center}
+.dot{width:28px;height:28px;border-radius:50%;background:var(--chip);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.rail .ln{flex:1;width:2px;background:var(--line);margin:4px 0}
+.post{display:flex;flex-direction:column;gap:4px;padding-bottom:12px;min-width:0}
+.post-top{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.count{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.count.over{color:var(--bad);font-weight:500}
+.post textarea{background:transparent;border:1px solid transparent;padding:4px 6px;margin-left:-6px;width:calc(100% + 6px);resize:none;overflow:hidden;line-height:1.65;min-height:0;white-space:pre-wrap}
+.post textarea:hover{border-color:var(--line)}
+.post textarea:focus{border-color:var(--accent);outline:none;background:var(--bg)}
+.why{font-size:13px;color:var(--muted);border-left:2px solid var(--line);padding-left:10px;margin:0}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.ck{font-size:12px;border-radius:6px;padding:2px 8px;background:var(--chip);color:var(--muted)}
+.ck.ok{background:var(--accent-soft);color:var(--accent)}
+.ck.warn{background:var(--warn-soft);color:var(--warn)}
+.card-foot{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.keybox{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.keybox summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.keybox summary em{font-style:normal;font-weight:400}
+.keybox .field{margin-top:10px}
+.prompt-box{white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:320px;overflow:auto}
+details.guide summary{cursor:pointer;font-weight:600;font-size:14px}
+details.guide table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+details.guide td,details.guide th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+details.guide th{color:var(--muted);font-weight:600;font-size:12px}
+.tbl{overflow-x:auto}
+@media (prefers-reduced-motion:no-preference){.card.new{animation:rise .35s ease-out}}
+@keyframes rise{from{transform:translateY(6px);opacity:.4}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>스레드 반응글 작성기<span class="slash"> /</span></h1>
+      <p class="sub">원하는 반응을 고르면 그 반응이 실제로 나온 구조로 본문과 답글을 써줘요.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <form class="panel" id="form" autocomplete="off">
+      <div class="field">
+        <label class="label" for="niche">계정 분야 · 소개</label>
+        <input type="text" id="niche" placeholder="예) 자영업자에게 AI 마케팅 알려주는 계정">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label class="label" for="target">타깃 독자</label>
+          <input type="text" id="target" placeholder="예) 동네 가게 사장님">
+        </div>
+        <div class="field">
+          <span class="label" id="toneLbl">말투</span>
+          <div class="seg" role="group" aria-labelledby="toneLbl" id="tone">
+            <button type="button" data-v="반말" aria-pressed="true">반말</button>
+            <button type="button" data-v="존댓말" aria-pressed="false">존댓말</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="topic">이번 글 주제</label>
+        <textarea id="topic" rows="2" placeholder="예) 리뷰 답글을 AI로 빨리 쓰는 법"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="facts">실제 경험 · 수치 <em>(선택)</em></label>
+        <textarea id="facts" rows="2" placeholder="예) 하루 리뷰 30개, 답글 시간 1시간 → 10분. 오픈 3년차 김치찌개집"></textarea>
+        <p class="hint">여기 없는 성과나 수치는 지어내지 않고 [대괄호]로 비워둬요.</p>
+      </div>
+
+      <div class="field">
+        <span class="label">원하는 반응</span>
+        <div class="chips" id="goals"></div>
+      </div>
+
+      <div class="field">
+        <span class="label">구조 <em>(여러 개 선택 가능)</em></span>
+        <div class="structs" id="structs"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="count">구조당 글 수</label>
+        <select id="count">
+          <option value="1">1개</option>
+          <option value="2" selected>2개</option>
+          <option value="3">3개</option>
+        </select>
+      </div>
+
+      <details class="keybox" id="keybox">
+        <summary>API 키로 바로 생성 <em>(선택)</em></summary>
+        <div class="field">
+          <label class="label" for="apikey">Anthropic API 키</label>
+          <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+          <p class="hint">키는 이 브라우저에만 저장되고 Anthropic으로만 보내져요. 사용료는 키 주인에게 청구돼요. 키가 없으면 ‘글 쓰기’를 눌러 나오는 프롬프트를 Claude나 ChatGPT 채팅에 붙여넣으면 돼요.</p>
+          <div class="actions"><button type="button" class="btn small" id="forget">키 지우기</button></div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="submit" class="btn primary" id="go">글 쓰기</button>
+        <button type="button" class="btn" id="stop" hidden>멈추기</button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </form>
+
+    <section class="results" aria-label="결과">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tabNew" aria-selected="true">새 글</button>
+        <button class="tab" role="tab" id="tabSaved" aria-selected="false">보관함<span class="n" id="savedN">0</span></button>
+        <button class="tab" role="tab" id="tabGuide" aria-selected="false">구조 가이드</button>
+      </div>
+      <div class="feed" id="feed"></div>
+      <div class="feed" id="saved" hidden></div>
+      <div id="guide" hidden></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const STRUCTS = [
+  {id:"beforeafter", name:"하지 마세요 → 대신 이렇게", short:"흔한 행동 지적 + 대안 프롬프트/방법 n개",
+   formula:"1줄: 사람들이 흔히 하는 행동을 '그만하자/하지 마세요'로 지적. 2줄: 이유 한 줄. 3줄: '대신 아래 n개'로 대안 예고. 4줄: 결과 약속. 답글에 대안 목록. 변형: 'A라고 했더니 [작은 숫자] → B라고 했더니 [큰 숫자]'.",
+   example:"ChatGPT한테 그냥 \"이거 알려줘\"라고 그만하자. / 프롬프트가 구리면 결과도 구리다. / 대신 아래 6개 프롬프트를 써보자. (39만 조회)"},
+  {id:"authority", name:"권위 + 방법 공개", short:"직함·연차를 첫 단어로, 바로 실행할 단계",
+   formula:"첫 단어에 '[직함/연차/출신]이 알려주는'. 대상+주제 명시(예: 왕초보 ~법). 1. 2. 3. 번호로 바로 실행 가능한 단계. 단계는 구체적 행동 동사로.",
+   example:"국내파 12년차 스피킹 전문 강사가 알려주는 왕초보 영어 독학 공부법 / 1. 그래머 인 유즈 베이직을 산다. (26만 조회, 좋아요 3,800)"},
+  {id:"list", name:"짧은 숫자 리스트", short:"근거 + 결과 + 개수, 항목은 1~3단어",
+   formula:"1줄: 근거(조사·경험 기간). 2줄: 결과 + 'n가지'. 이어서 '1 ~ 2 ~ 3 ~' 항목은 1~3단어로 아주 짧게. 필요하면 답글에 항목별 한 줄 설명.",
+   example:"상위 1% 가정 10년 연구한 자녀를 엘리트로 만드는 15가지 습관 / 1 체스 2 지루함 3 질문 (21만 조회, 공유 2,400)"},
+  {id:"free", name:"무료 공개 + 금액 앵커", short:"'무료로 풀었다' + 대행비 금액 + 공개 이유",
+   formula:"1줄: '오늘 ~ 무료로 풀었다/공개한다'. 2줄: '월 [금액] 받는 [업체/서비스]가 하는 일을' 금액으로 가치 각인. 3줄: '이걸 왜 공개하냐면' 이유(안타까움/요청이 많아서). 끝: 한 줄 명언. 답글에 실제 자료.",
+   example:"오늘 깃허브에 무료로 풀었다. / 월 50~350만 원 받는 SEO 대행 업체들이 하는 일을 대신 해주는 스킬이야. / 이걸 왜 공개하냐면, (공유 2,700)"},
+  {id:"versus", name:"A vs B 대비", short:"두 개를 나란히, 독자가 스스로 대입",
+   formula:"1줄: 'A vs B' 또는 'A를 주면 X, B를 주면 Y'. 2줄: 왜 다른지 한 줄. 짧게 끝내거나 답글에 각각의 특징 3개씩.",
+   example:"남자 마케팅 vs 여자 마케팅 / 뇌구조 자체가 다르니까 판매 전략도 다르다 (37만 조회, 좋아요 9,800)"},
+  {id:"openq", name:"열린 질문 \"~있어? 나는\"", short:"누구나 답할 질문 + 내가 먼저 답하기",
+   formula:"1줄: 누구나 자기 경험으로 답할 수 있는 질문. 2줄: '나는' 하고 끊기. 답글에 내 답(짧게, 솔직하게) + 다시 질문. 정보 없는 단순 사실 확인 질문은 금지.",
+   example:"자신만의 루틴 중 자랑할 만 한 거 있어? / 나는 (답글 930, 좋아요 4,400)"},
+  {id:"friend", name:"친구 모집 · 자기소개", short:"전문가·브랜드가 반말로 친근하게 인사",
+   formula:"1줄: 스레드에서 이런 사람을 만날 수 있어 좋다/나는 ~하는 사람이야. 2줄: 내가 누군지 한 줄. 끝: '혹시 ~랑 친구 할 사람?' 또는 '궁금한 거 물어봐'. 짧게.",
+   example:"스레드가 좋은 이유는, 변호사·의사·세무사·마케팅 대행사 등 다양한 전문가와 친구가 될 수 있다는 점. / 그럼 혹시.. 약사랑 친구 할 사람...? (답글 604)"},
+  {id:"confess", name:"공감 고민 · 후기 고백", short:"망설임/좌절 고백 → 반전 결과는 답글로",
+   formula:"1줄: '솔직히 ~해서 안 올리려 했는데' 또는 '~ 너무 하고 싶음;;'. 2~3줄: 구체적으로 해본 노력(기간·방법)과 실패. 4줄: 마지막에 해본 것 + 결과 암시. 제품/방법 이름은 답글(2/2)로.",
+   example:"솔직히 너무 더러워서 안 올리려고 했는데 / 추천해준 스친 고마워서 올림 / ~ 이런 거 다 써봐도 효과 없길래 (46만 조회)"},
+  {id:"shift", name:"충격 단언 · 변화 선언", short:"'바뀌었다' + '아직 모르는 사람 많다' + 진짜 원인",
+   formula:"1줄: '~ 바뀐 거 아직도 모르는 사람 많음;;' 또는 '~는 이미 끝물'. 2줄: 독자 상황 공감('요즘 다들 ~ 힘들지?'). 3줄: '진짜 문제는 ~가 아니라 ~임'. 답글에 바뀐 점과 해야 할 것.",
+   example:"네이버 상위노출 로직 바뀐 거 아직도 모르는 사람 많음;; / 요즘 다들 장사 힘들지? / 진짜 문제는 불경기가 아니라 마케팅 방향을 잘못 잡는 거임 (답글율·리포스트율 최상위)"},
+  {id:"expose", name:"업계 폭로 · 민낯", short:"'다들 ~인 줄 아는데' + 업계 사람만 아는 이야기",
+   formula:"1줄: '[업계]라고 하면 다들 ~인 줄 아는데'. 2줄: '그거 다 포장된 환상임/사실은 ~'. 3줄: 지금부터 진짜를 보여주겠다 또는 '~명 중 ~명은 이걸 잘못함'. 비방·특정 업체 지목 금지.",
+   example:"마케팅 대행사라고 하면 다들 맥북 켜놓고 기발한 아이디어나 짜내는 줄 아는데 / 그거 다 포장된 환상임. (뷰티 마케팅 폭로 16만 조회)"},
+  {id:"paradox", name:"역설 · 금지 훅", short:"'절대 ~하지 마세요' + 진짜 유용한 본문",
+   formula:"1줄: '절대 ~하지 마세요. 너무 ~할 수 있습니다.' 또는 '🚨 속보)'. 2줄: 기대감 한 줄. 본문/답글 내용은 반드시 실제로 유용한 정보여야 함(호기심만 주고 비면 반응 없음).",
+   example:"절대 열어보지 마세요. 너무 유용할 수 있습니다. / 스레드에서 가장 유용한 글 일겁니다. (18만 조회, 공유 795)"},
+  {id:"magnet", name:"성과 + 댓글 리드마그넷", short:"성과 → 이유 → 진입장벽 제거 → '댓글 달면 보내줄게'",
+   formula:"1줄: 내가 얻은 성과(사용자가 준 실제 수치만). 1. 이유가 있다, n가지 공식. 2. 왕초보도 가능. <자료 이름>. 끝: '필요한 사람? 댓글 달아주면 보내줄게'. 실제로 줄 자료가 있다는 전제.",
+   example:"스레드 5분 만에 작성해서 조회수 20만 터뜨렸어! / 1. 스레드가 터지는 데는 이유가 있어. … / 댓글 달아주면 링크 배포할게! (답글 1,400)"},
+];
+const SNUM = Object.fromEntries(STRUCTS.map((s,i)=>[s.id,i+1]));
+const GOALS = [
+  {id:"view",  name:"조회수",    rec:["confess","versus"]},
+  {id:"like",  name:"좋아요",    rec:["versus","list"]},
+  {id:"reply", name:"답글",      rec:["openq","friend"]},
+  {id:"repost",name:"리포스트",  rec:["shift","list"]},
+  {id:"share", name:"공유·저장", rec:["beforeafter","free"]},
+  {id:"follow",name:"팔로우·신뢰",rec:["authority","friend"]},
+  {id:"db",    name:"DB 수집",   rec:["magnet"]},
+];
+
+const $ = s => document.querySelector(s);
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+};
+
+const state = {
+  tone:"반말",
+  goal:null,
+  picked:new Set(["beforeafter","openq"]),
+  saved:store.get("tw_saved",[]),
+};
+
+/* ---------- 설정 패널 ---------- */
+function renderGoals(){
+  const box=$("#goals"); box.textContent="";
+  for(const g of GOALS){
+    const b=document.createElement("button");
+    b.type="button"; b.className="chip"; b.textContent=g.name;
+    b.setAttribute("aria-pressed", String(state.goal===g.id));
+    b.onclick=()=>{
+      state.goal = state.goal===g.id ? null : g.id;
+      if(state.goal){ state.picked=new Set(g.rec); }
+      renderGoals(); renderStructs(); saveCfg();
+    };
+    box.append(b);
+  }
+}
+function renderStructs(){
+  const box=$("#structs"); box.textContent="";
+  const rec = state.goal ? GOALS.find(g=>g.id===state.goal).rec : [];
+  STRUCTS.forEach((s,i)=>{
+    const b=document.createElement("button");
+    b.type="button"; b.className="st";
+    b.setAttribute("aria-pressed", String(state.picked.has(s.id)));
+    const no=document.createElement("span"); no.className="no"; no.textContent=String(i+1).padStart(2,"0");
+    const tx=document.createElement("span");
+    const t=document.createElement("b"); t.textContent=s.name;
+    if(rec.includes(s.id)){const r=document.createElement("span");r.className="rec";r.textContent="추천";t.append(r)}
+    const d=document.createElement("small"); d.textContent=s.short;
+    tx.append(t,d); b.append(no,tx);
+    b.onclick=()=>{
+      state.picked.has(s.id)?state.picked.delete(s.id):state.picked.add(s.id);
+      renderStructs(); saveCfg();
+    };
+    box.append(b);
+  });
+}
+$("#tone").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  state.tone=b.dataset.v;
+  for(const x of $("#tone").children) x.setAttribute("aria-pressed", String(x===b));
+  saveCfg();
+});
+const CFG_FIELDS=["niche","target","topic","facts","count"];
+function saveCfg(){
+  const c={tone:state.tone,goal:state.goal,picked:[...state.picked]};
+  for(const f of CFG_FIELDS) c[f]=$("#"+f).value;
+  store.set("tw_cfg",c);
+}
+function loadCfg(){
+  const c=store.get("tw_cfg",null);
+  if(!c){ // 처음 열 때: 예시 계정으로 채워둠
+    $("#niche").value="자영업자에게 AI로 마케팅하는 법을 알려주는 계정";
+    $("#target").value="동네 가게 사장님";
+    $("#topic").value="리뷰 답글을 AI로 빨리 쓰는 법";
+    return;
+  }
+  for(const f of CFG_FIELDS) if(c[f]!=null) $("#"+f).value=c[f];
+  state.tone=c.tone||"반말"; state.goal=c.goal||null;
+  if(Array.isArray(c.picked)&&c.picked.length) state.picked=new Set(c.picked.filter(id=>SNUM[id]));
+  for(const x of $("#tone").children) x.setAttribute("aria-pressed", String(x.dataset.v===state.tone));
+}
+for(const f of CFG_FIELDS) $("#"+f).addEventListener("input",saveCfg);
+
+/* ---------- 프롬프트 ---------- */
+function cfg(){
+  return {
+    niche:$("#niche").value.trim(), target:$("#target").value.trim(),
+    topic:$("#topic").value.trim(), facts:$("#facts").value.trim(),
+    tone:state.tone, count:Number($("#count").value)||2,
+    goal: state.goal ? GOALS.find(g=>g.id===state.goal).name : "",
+  };
+}
+function buildPrompt(c, ids, count, extra){
+  const structs = ids.map(id=>STRUCTS.find(s=>s.id===id));
+  const total = structs.length*count;
+  return `너는 한국어 스레드(Threads) 글을 쓰는 작가야. 조회수 3만 이상 스레드 글 137개를 분석해서 나온 구조를 그대로 따라 글을 써.
+
+[계정]
+- 분야·소개: ${c.niche||"(미입력)"}
+- 타깃 독자: ${c.target||"(미입력)"}
+- 말투: ${c.tone}${c.tone==="반말"?" (친구한테 말하듯, ~함/~임/~거든 체도 섞어서)":" (친근한 ~요체)"}
+
+[이번 글 주제]
+${c.topic}
+
+[실제 경험·수치 — 여기 있는 것만 사실로 써도 됨]
+${c.facts||"없음"}
+${c.goal?`\n[원하는 반응]\n${c.goal}\n`:""}
+[써야 할 구조] 각 구조마다 ${count}개씩, 총 ${total}개
+${structs.map(s=>`■ id: ${s.id} / ${s.name}
+  공식: ${s.formula}
+  실제로 터진 예시: ${s.example}`).join("\n")}
+
+[규칙]
+1. main은 스레드 첫 글(1/2). 첫 줄이 훅이고, 첫 줄은 25자 안팎으로 짧게. 한 줄에 한 문장, 줄바꿈 자주. 150~350자, 최대 480자.
+2. reply는 첫 글에 이어 다는 답글(2/2). 본문에서 끊은 답, 목록, 프롬프트, 방법을 여기서 풀어. 최대 480자. 그 구조에 답글이 필요 없으면 빈 문자열 "".
+3. [실제 경험·수치]에 없는 성과·매출·조회수·팔로워 수·후기·인물·연구 결과를 지어내지 마. 그런 자리가 필요하면 [대괄호 안에 무엇을 넣을지 설명]으로 비워 둬. 일반적인 사실이나 방법은 써도 돼.
+4. 해시태그는 쓰지 마. 대신 tag에 스레드 주제 태그로 쓸 단어 하나.
+5. 이모지는 글 하나에 많아야 2개.
+6. 같은 구조로 여러 개 쓸 땐 훅 문장과 각도를 서로 확실히 다르게.
+7. 광고처럼 보이지 않게. 특정 업체를 비방하지 마.${extra?`\n8. ${extra}`:""}
+
+[출력 형식]
+한 줄에 JSON 객체 하나씩, 총 ${total}줄. 앞뒤에 다른 말이나 코드블록 없이.
+{"structure":"구조 id","main":"본문(줄바꿈은 \\n)","reply":"답글","tag":"주제태그","why":"이 글이 그 반응을 얻을 이유 한 문장"}`;
+}
+
+/* ---------- 결과 카드 ---------- */
+function autosize(t){t.style.height="auto";t.style.height=t.scrollHeight+"px"}
+function checks(main, reply){
+  const lines=main.split("\n").filter(l=>l.trim());
+  const first=(lines[0]||"").trim();
+  const all=main+"\n"+reply;
+  const endsOpen=/[?？]\s*$|나는\s*$|👇|저장|댓글|이유는\s*$|뭐냐면\s*$|건\s*$/.test(main.trim());
+  return [
+    {t:`첫 줄 ${first.length}자`, s: first.length<=30?"ok":"warn"},
+    {t:"숫자 있음", s:/\d/.test(all)?"ok":"none", alt:"숫자 없음"},
+    {t:"끝이 열려 있음", s:endsOpen?"ok":"none", alt:"끝이 닫혀 있음"},
+    {t:"500자 이내", s:(main.length<=500&&reply.length<=500)?"ok":"warn", alt:"500자 넘음"},
+    ...( /\[[^\]]+\]/.test(all) ? [{t:"[대괄호] 채우기", s:"warn"}] : []),
+  ];
+}
+function postBlock(label, idx, value, onChange){
+  const wrap=document.createElement("div"); wrap.className="post";
+  const top=document.createElement("div"); top.className="post-top";
+  const l=document.createElement("span"); l.textContent=label;
+  const n=document.createElement("span"); n.className="count";
+  top.append(l,n);
+  const ta=document.createElement("textarea"); ta.value=value; ta.rows=1;
+  ta.setAttribute("aria-label",label);
+  const upd=()=>{n.textContent=ta.value.length+" / 500";n.classList.toggle("over",ta.value.length>500);autosize(ta)};
+  ta.addEventListener("input",()=>{upd();onChange(ta.value)});
+  wrap.append(top,ta);
+  requestAnimationFrame(upd);
+  return {wrap,ta};
+}
+async function copy(text, btn){
+  const old=btn.textContent;
+  try{await navigator.clipboard.writeText(text);btn.textContent="복사됨"}
+  catch{btn.textContent="복사 안 됨 · 직접 선택하세요"}
+  setTimeout(()=>btn.textContent=old,1400);
+}
+function makeCard(p, opts={}){
+  const s=STRUCTS.find(x=>x.id===p.structure)||{name:p.structure,id:p.structure};
+  const card=document.createElement("article"); card.className="card"+(opts.fresh?" new":"");
+  const head=document.createElement("div"); head.className="card-head";
+  const badge=document.createElement("span"); badge.className="badge";
+  badge.textContent=(SNUM[s.id]?String(SNUM[s.id]).padStart(2,"0")+" ":"")+s.name;
+  head.append(badge);
+  if(p.tag){const t=document.createElement("span");t.className="tagline";t.textContent="주제 태그 · "+p.tag;head.append(t)}
+  if(p.example){const e=document.createElement("span");e.className="example";e.textContent="예시";head.append(e)}
+  card.append(head);
+
+  const th=document.createElement("div"); th.className="thread";
+  const hasReply = (p.reply||"").trim().length>0;
+  const ck=document.createElement("div"); ck.className="checks";
+  const drawChecks=()=>{ck.textContent="";for(const c of checks(p.main,p.reply||"")){const e=document.createElement("span");e.className="ck "+(c.s==="ok"?"ok":c.s==="warn"?"warn":"");e.textContent=c.s==="none"?(c.alt||c.t):(c.s==="warn"&&c.alt?c.alt:c.t);ck.append(e)}};
+  const commit=()=>{drawChecks(); if(opts.onEdit) opts.onEdit(p)};
+
+  const r1=document.createElement("div"); r1.className="rail";
+  const d1=document.createElement("span"); d1.className="dot"; d1.textContent="1"; r1.append(d1);
+  if(hasReply){const ln=document.createElement("span");ln.className="ln";r1.append(ln)}
+  const b1=postBlock("본문 (1/"+(hasReply?2:1)+")",1,p.main,v=>{p.main=v;commit()});
+  th.append(r1,b1.wrap);
+  let b2=null;
+  if(hasReply){
+    const r2=document.createElement("div"); r2.className="rail";
+    const d2=document.createElement("span"); d2.className="dot"; d2.textContent="2"; r2.append(d2);
+    b2=postBlock("답글 (2/2)",2,p.reply,v=>{p.reply=v;commit()});
+    th.append(r2,b2.wrap);
+  }
+  card.append(th);
+  if(p.why){const w=document.createElement("p");w.className="why";w.textContent=p.why;card.append(w)}
+  drawChecks(); card.append(ck);
+
+  const foot=document.createElement("div"); foot.className="card-foot";
+  const mk=(txt,fn)=>{const b=document.createElement("button");b.type="button";b.className="btn small";b.textContent=txt;b.onclick=()=>fn(b);foot.append(b);return b};
+  mk("본문 복사",b=>copy(p.main,b));
+  if(hasReply) mk("답글 복사",b=>copy(p.reply,b));
+  if(opts.savedView){
+    mk("삭제",()=>{state.saved=state.saved.filter(x=>x.key!==p.key);store.set("tw_saved",state.saved);renderSaved()});
+  }else{
+    const sv=mk(isSaved(p)?"보관됨":"보관",b=>{
+      if(isSaved(p)) return;
+      state.saved.unshift({...p,key:p.key||Date.now()+"_"+Math.random().toString(36).slice(2,7),example:false});
+      p.key=state.saved[0].key; store.set("tw_saved",state.saved); b.textContent="보관됨"; updSavedN();
+    });
+    if(!p.example) mk("이 구조로 다시",b=>regenOne(p,card,b));
+  }
+  card.append(foot);
+  return card;
+}
+function isSaved(p){return !!p.key && state.saved.some(x=>x.key===p.key)}
+
+/* ---------- 탭 ---------- */
+const TABS={tabNew:"#feed",tabSaved:"#saved",tabGuide:"#guide"};
+for(const id of Object.keys(TABS)){
+  $("#"+id).onclick=()=>{
+    for(const [t,sel] of Object.entries(TABS)){ $("#"+t).setAttribute("aria-selected",String(t===id)); $(sel).hidden = t!==id; }
+    if(id==="tabSaved") renderSaved();
+    store.set("tw_tab",id);
+  };
+}
+function updSavedN(){$("#savedN").textContent=state.saved.length}
+function renderSaved(){
+  const box=$("#saved"); box.textContent=""; updSavedN();
+  if(!state.saved.length){const e=document.createElement("div");e.className="empty";e.textContent="보관한 글이 여기 모여요. 결과 카드에서 ‘보관’을 누르세요.";box.append(e);return}
+  for(const p of state.saved) box.append(makeCard(p,{savedView:true,onEdit:()=>store.set("tw_saved",state.saved)}));
+}
+function renderGuide(){
+  const g=$("#guide");
+  const det=document.createElement("details"); det.className="guide card"; det.open=true;
+  const sm=document.createElement("summary"); sm.textContent="반응별로 잘 되는 구조"; det.append(sm);
+  const wrap=document.createElement("div"); wrap.className="tbl";
+  const tb=document.createElement("table");
+  tb.innerHTML="<thead><tr><th>구조</th><th>공식</th><th>실제 사례</th></tr></thead>";
+  const body=document.createElement("tbody");
+  STRUCTS.forEach((s,i)=>{
+    const tr=document.createElement("tr");
+    for(const v of [String(i+1).padStart(2,"0")+" "+s.name, s.formula, s.example]){const td=document.createElement("td");td.textContent=v;tr.append(td)}
+    body.append(tr);
+  });
+  tb.append(body); wrap.append(tb); det.append(wrap);
+  const p=document.createElement("p"); p.className="hint";
+  p.textContent="조회수만 높고 반응 없는 글의 공통점: 호기심만 주고 얻을 게 없음. 읽고 나서 얻는 게 있거나, 하고 싶은 말이 생겨야 반응이 나와요.";
+  det.append(p); g.append(det);
+}
+
+/* ---------- 생성 ---------- */
+let ctl=null;
+const ERR={
+  not_granted:"Claude 사용이 허용되지 않았어요. 아래 프롬프트를 복사해서 Claude 채팅에 붙여넣어도 돼요.",
+  sampling_disabled:"이 계정에서는 Claude를 쓸 수 없어요.",
+  rate_limited:"요청이 너무 많아요. 잠시 뒤 다시 눌러주세요.",
+  session_expired:"로그인이 만료됐어요. 다시 로그인한 뒤 눌러주세요.",
+  refused:"이 주제로는 글을 쓰지 못했어요. 주제를 바꿔서 다시 해보세요.",
+  empty_completion:"답이 비어 있어요. 구조 수를 줄여서 다시 해보세요.",
+  prompt_too_large:"입력이 너무 길어요. 경험·수치를 줄여주세요.",
+};
+ERR.bad_key="API 키가 맞지 않아요. 키를 다시 확인해주세요.";
+ERR.no_credit="API 크레딧이 부족해요. Anthropic 콘솔에서 결제 상태를 확인해주세요.";
+ERR.network="연결하지 못했어요. 인터넷 연결과 API 키를 확인해주세요.";
+const errText=e=>ERR[e?.code]||(e?.code==="api_error"&&e.message?"API 오류: "+e.message:"연결이 끊겼어요. 다시 눌러주세요.");
+
+/* claude.ai 안에서는 Claude 기능, 밖(GitHub Pages 등)에서는 API 키로 생성 */
+const MODEL="claude-sonnet-5-5";
+function apiSample(key){
+  return async (prompt,{signal,onText}={})=>{
+    let res;
+    try{
+      res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,
+        headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:MODEL,max_tokens:8000,stream:true,messages:[{role:"user",content:prompt}]})});
+    }catch(e){ throw {code:e?.name==="AbortError"?"cancelled":"network"} }
+    if(!res.ok){
+      let msg=""; try{msg=(await res.json()).error?.message||""}catch{}
+      const code=res.status===401||res.status===403?"bad_key":res.status===429?"rate_limited":res.status>=500?"upstream_error":/credit|billing/i.test(msg)?"no_credit":"api_error";
+      throw {code,message:msg};
+    }
+    const reader=res.body.getReader(), dec=new TextDecoder();
+    let buf="", text="", stop="";
+    try{
+      for(;;){
+        const {done,value}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split("\n"); buf=lines.pop();
+        for(const l of lines){
+          if(!l.startsWith("data:")) continue;
+          let ev; try{ev=JSON.parse(l.slice(5))}catch{continue}
+          if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"&&ev.delta.text){
+            text+=ev.delta.text; onText&&onText({text,delta:ev.delta.text});
+          }else if(ev.type==="message_delta"&&ev.delta?.stop_reason){ stop=ev.delta.stop_reason }
+          else if(ev.type==="error"){ throw {code:"upstream_error",message:ev.error?.message,text} }
+        }
+      }
+    }catch(e){
+      if(e?.code) throw e;
+      throw {code:e?.name==="AbortError"?"cancelled":"upstream_error",text};
+    }
+    if(!text.trim()) throw {code:"empty_completion"};
+    return {text,truncated:stop==="max_tokens"};
+  };
+}
+async function getSample(){
+  let s=null;
+  try{ if(window.claude) s=await window.claude.use("sample") }catch{}
+  if(s) return s;
+  const k=$("#apikey").value.trim();
+  return k?apiSample(k):null;
+}
+$("#apikey").value=store.get("tw_key","");
+$("#apikey").addEventListener("input",e=>store.set("tw_key",e.target.value.trim()));
+$("#forget").onclick=()=>{$("#apikey").value="";try{localStorage.removeItem("tw_key")}catch{};status("API 키를 지웠어요.")};
+if(window.claude){ window.claude.use("sample").then(s=>{ if(s) $("#keybox").hidden=true }).catch(()=>{}) }
+function setBusy(b){$("#go").disabled=b;$("#stop").hidden=!b}
+function status(t,err){const s=$("#status");s.textContent=t;s.classList.toggle("err",!!err)}
+function parseLine(line){
+  line=line.trim().replace(/^```(json)?/,"").replace(/```$/,"").trim();
+  if(!line.startsWith("{")) return null;
+  try{const o=JSON.parse(line); if(typeof o.main==="string") return o}catch{}
+  return null;
+}
+function showFallback(prompt, msg){
+  const feed=$("#feed");
+  const c=document.createElement("div"); c.className="card";
+  const p=document.createElement("p"); p.className="hint"; p.textContent=msg;
+  const box=document.createElement("div"); box.className="prompt-box"; box.textContent=prompt;
+  const f=document.createElement("div"); f.className="card-foot";
+  const b=document.createElement("button"); b.type="button"; b.className="btn small"; b.textContent="프롬프트 복사"; b.onclick=()=>copy(prompt,b);
+  f.append(b); c.append(p,box,f); feed.prepend(c);
+}
+$("#form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const c=cfg(); const ids=[...state.picked];
+  if(!c.topic){status("이번 글 주제를 적어주세요.",true);$("#topic").focus();return}
+  if(!ids.length){status("구조를 하나 이상 골라주세요.",true);return}
+  $("#tabNew").click();
+  const prompt=buildPrompt(c,ids,c.count);
+  const sample=await getSample();
+  if(!sample){status("");$("#keybox").open=true;showFallback(prompt,"API 키를 넣으면 이 화면에서 바로 써줘요. 키가 없으면 아래 프롬프트를 복사해서 Claude나 ChatGPT 채팅에 붙여넣으세요. 한 줄에 글 하나씩 결과가 나와요.");return}
+
+  const feed=$("#feed");
+  for(const ex of feed.querySelectorAll(".card")) if(ex.querySelector(".example")) ex.remove();
+  const anchor=document.createElement("div"); feed.prepend(anchor);
+  let pending="", n=0; const total=ids.length*c.count;
+  const add=o=>{ if(!o) return; n++; anchor.before(makeCard(o,{fresh:true})); status(`${n} / ${total}개 쓰는 중…`) };
+  ctl=new AbortController(); setBusy(true); status("구조 읽는 중… (보통 20~60초)");
+  try{
+    await sample(prompt,{signal:ctl.signal,cache:false,onText:({delta})=>{
+      const lines=(pending+delta).split("\n"); pending=lines.pop();
+      for(const l of lines) add(parseLine(l));
+    }});
+    add(parseLine(pending)); pending="";
+    status(n?`${n}개 완성. 글을 눌러 바로 고칠 수 있어요.`:"결과를 읽지 못했어요. 다시 눌러주세요.", !n);
+  }catch(err){
+    add(parseLine(pending));
+    if(err?.code==="cancelled") status(`멈춤 · ${n}개까지 썼어요.`);
+    else { status(errText(err),true); if(err?.code==="not_granted") showFallback(prompt,errText(err)); }
+  }finally{ anchor.remove(); setBusy(false); ctl=null; }
+});
+$("#stop").onclick=()=>ctl?.abort();
+
+async function regenOne(p, card, btn){
+  const sample=await getSample(); if(!sample){status("이 화면에서는 다시 쓰기를 할 수 없어요.",true);return}
+  const c=cfg(); if(!c.topic) c.topic=p.topic||"";
+  const prompt=buildPrompt(c,[p.structure],1,`앞서 쓴 아래 글과 훅·각도가 완전히 다르게 써.\n---\n${p.main}\n---`);
+  btn.disabled=true; btn.textContent="다시 쓰는 중…";
+  try{
+    const {text}=await sample(prompt,{cache:false});
+    const o=text.split("\n").map(parseLine).find(Boolean);
+    if(o){ card.replaceWith(makeCard(o,{fresh:true})); status("다시 썼어요."); }
+    else { status("결과를 읽지 못했어요. 다시 눌러주세요.",true); btn.disabled=false; btn.textContent="이 구조로 다시"; }
+  }catch(err){ status(errText(err),true); btn.disabled=false; btn.textContent="이 구조로 다시"; }
+}
+
+/* ---------- 시작 ---------- */
+const EXAMPLES=[
+  {structure:"beforeafter",example:true,tag:"자영업자이야기",
+   main:"사장님들 AI한테 \"리뷰 답글 써줘\" 한 줄만 치지 마세요\n\n그러면 어느 가게에나 붙일 수 있는 답글이 나와요\n\n대신 아래 3줄만 붙여보세요\n손님이 우리 가게 단골인 줄 알 거예요 👇",
+   reply:"1. \"너는 [가게명] 사장이야. 말투는 [친근하게]\"\n2. \"손님이 말한 메뉴 이름을 꼭 다시 언급해줘\"\n3. \"이모지는 1개만, 마지막 줄은 다음 방문 인사\"\n\n별점 낮은 리뷰엔 이 한 줄 추가\n\"변명 말고 사과 + 개선 약속 한 문장\"",
+   why:"흔한 행동을 지적하고 바로 붙여 쓸 대안을 줘서 저장·공유가 나오기 쉬운 구조예요."},
+  {structure:"openq",example:true,tag:"자영업자이야기",
+   main:"사장님들 리뷰 답글 하루에 몇 개 다세요?\n\n저는 [하루 리뷰 수]개요",
+   reply:"솔직히 처음엔 하나하나 손으로 쓰다가 [몇 시]까지 붙잡고 있었어요\n\n요즘은 AI로 초안 뽑고 말투만 고쳐요\n\n다른 사장님들은 어떻게 하세요?",
+   why:"누구나 숫자로 답할 수 있는 질문이라 답글이 달리기 쉬워요."},
+];
+loadCfg(); renderGoals(); renderStructs(); renderGuide(); updSavedN();
+for(const ex of EXAMPLES) $("#feed").append(makeCard(ex));
+const lastTab=store.get("tw_tab","tabNew"); if(TABS[lastTab]&&lastTab!=="tabNew") $("#"+lastTab).click();
+</script>
+
+</body>
+</html>
