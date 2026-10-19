@@ -19,7 +19,7 @@
 
 - 화면: GitHub Pages (`index.html`, `admin.html`)
 - 회원·승인·사용 횟수: Supabase Auth + Postgres (`supabase/migrations`)
-- Claude 호출: Supabase Edge Function `generate` (`supabase/functions/generate`). Anthropic API 키는 Supabase secret `ANTHROPIC_API_KEY`에만 있고 브라우저로 보내지지 않아요.
+- AI 호출: Supabase Edge Function `generate` (`supabase/functions/generate`). API 키는 Supabase secret `GEMINI_API_KEY`(우선) 또는 `ANTHROPIC_API_KEY`에만 있고 브라우저로 보내지지 않아요.
 
 ## 12가지 구조
 
