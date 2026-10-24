@@ -108,6 +108,14 @@ textarea{resize:vertical;min-height:70px;line-height:1.55}
 .seg button{border:0;background:transparent;padding:7px 14px;border-radius:8px;font-size:14px;color:var(--ink-2);cursor:pointer;font-weight:500;white-space:nowrap}
 .seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1);font-weight:700}
 
+.fchips{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:500;color:var(--ink-2);cursor:pointer;transition:all .15s}
+.fchip:hover{border-color:var(--line-2)}
+.fchip[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:var(--bg);font-weight:700}
+.goal .metric{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--font-mono);letter-spacing:-.01em}
+.goal[aria-pressed=true] .metric{color:var(--accent)}
+.st .kind{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.ver{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:1px 6px;margin-left:2px}
 .goals{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
 .goal{border:1px solid var(--line);background:var(--surface-2);border-radius:var(--r-m);padding:10px 12px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:1px;transition:border-color .15s,background .15s,transform .15s}
 .goal:hover{border-color:var(--line-2)}
@@ -238,7 +246,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 
 <header class="appbar gutter">
   <div class="inner">
-    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b></div>
+    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v3</span></div>
     <button type="button" class="acct-btn" id="acctBtn" hidden>
       <span class="av" id="acctAv">?</span><span class="t" id="acctBtnT">로그인</span><span class="q" id="acctBtnQ"></span>
     </button>
@@ -283,6 +291,10 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
             </div>
           </div>
         </div>
+        <div class="field">
+          <span class="label" id="fieldLbl">분야 <em>(분야마다 잘 통하는 전개가 달라요)</em></span>
+          <div class="fchips" role="group" aria-labelledby="fieldLbl" id="fields"></div>
+        </div>
       </section>
 
       <section class="step">
@@ -306,7 +318,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
       <section class="step">
         <div class="step-h"><span class="n">4</span><h2>구조</h2><span class="aside" id="pickedN"></span></div>
         <div class="structs" id="structs"></div>
-        <button type="button" class="more mobile-only" id="moreStructs">구조 12개 모두 보기</button>
+        <button type="button" class="more mobile-only" id="moreStructs">구조 15개 모두 보기</button>
         <div class="row2" style="grid-template-columns:auto 1fr;align-items:center">
           <span class="label" id="countLbl">구조당 글 수</span>
           <div class="seg" role="group" aria-labelledby="countLbl" id="countSeg">
@@ -369,53 +381,73 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
+/* v3 구조: 고조회수 500개 + 분야별 150개 분석 기준.
+   kind: talk(대화형, 짧게·질문 하나로 끝) / story(이야기형, 짧게) / info(정보형, 길어도 됨) */
 const STRUCTS = [
-  {id:"beforeafter", name:"하지 마세요 → 대신 이렇게", short:"흔한 행동 지적 + 대안 n개",
-   formula:"1줄: 사람들이 흔히 하는 행동을 '그만하자/하지 마세요'로 지적. 2줄: 이유 한 줄. 3줄: '대신 아래 n개'로 대안 예고. 4줄: 결과 약속. 답글에 대안 목록. 변형: 'A라고 했더니 [작은 숫자] → B라고 했더니 [큰 숫자]'.",
-   example:"ChatGPT한테 그냥 \"이거 알려줘\"라고 그만하자. / 프롬프트가 구리면 결과도 구리다. / 대신 아래 6개 프롬프트를 써보자. (39만 조회)"},
-  {id:"authority", name:"권위 + 방법 공개", short:"직함·연차를 첫 단어로",
-   formula:"첫 단어에 '[직함/연차/출신]이 알려주는'. 대상+주제 명시(예: 왕초보 ~법). 1. 2. 3. 번호로 바로 실행 가능한 단계. 단계는 구체적 행동 동사로.",
-   example:"국내파 12년차 스피킹 전문 강사가 알려주는 왕초보 영어 독학 공부법 / 1. 그래머 인 유즈 베이직을 산다. (26만 조회, 좋아요 3,800)"},
-  {id:"list", name:"짧은 숫자 리스트", short:"근거 + 결과 + 개수",
-   formula:"1줄: 근거(조사·경험 기간). 2줄: 결과 + 'n가지'. 이어서 '1 ~ 2 ~ 3 ~' 항목은 1~3단어로 아주 짧게. 필요하면 답글에 항목별 한 줄 설명.",
-   example:"상위 1% 가정 10년 연구한 자녀를 엘리트로 만드는 15가지 습관 / 1 체스 2 지루함 3 질문 (21만 조회, 공유 2,400)"},
-  {id:"free", name:"무료 공개 + 금액 앵커", short:"'무료로 풀었다' + 대행비 금액",
-   formula:"1줄: '오늘 ~ 무료로 풀었다/공개한다'. 2줄: '월 [금액] 받는 [업체/서비스]가 하는 일을' 금액으로 가치 각인. 3줄: '이걸 왜 공개하냐면' 이유(안타까움/요청이 많아서). 끝: 한 줄 명언. 답글에 실제 자료.",
-   example:"오늘 깃허브에 무료로 풀었다. / 월 50~350만 원 받는 SEO 대행 업체들이 하는 일을 대신 해주는 스킬이야. / 이걸 왜 공개하냐면, (공유 2,700)"},
-  {id:"versus", name:"A vs B 대비", short:"두 개를 나란히 비교",
-   formula:"1줄: 'A vs B' 또는 'A를 주면 X, B를 주면 Y'. 2줄: 왜 다른지 한 줄. 짧게 끝내거나 답글에 각각의 특징 3개씩.",
-   example:"남자 마케팅 vs 여자 마케팅 / 뇌구조 자체가 다르니까 판매 전략도 다르다 (37만 조회, 좋아요 9,800)"},
-  {id:"openq", name:"열린 질문 \"~있어? 나는\"", short:"누구나 답할 질문 + 내 답",
-   formula:"1줄: 누구나 자기 경험으로 답할 수 있는 질문. 2줄: '나는' 하고 끊기. 답글에 내 답(짧게, 솔직하게) + 다시 질문. 정보 없는 단순 사실 확인 질문은 금지.",
-   example:"자신만의 루틴 중 자랑할 만 한 거 있어? / 나는 (답글 930, 좋아요 4,400)"},
-  {id:"friend", name:"친구 모집 · 자기소개", short:"반말로 친근하게 인사",
-   formula:"1줄: 스레드에서 이런 사람을 만날 수 있어 좋다/나는 ~하는 사람이야. 2줄: 내가 누군지 한 줄. 끝: '혹시 ~랑 친구 할 사람?' 또는 '궁금한 거 물어봐'. 짧게.",
-   example:"스레드가 좋은 이유는, 변호사·의사·세무사·마케팅 대행사 등 다양한 전문가와 친구가 될 수 있다는 점. / 그럼 혹시.. 약사랑 친구 할 사람...? (답글 604)"},
-  {id:"confess", name:"공감 고민 · 후기 고백", short:"망설임 고백 → 반전은 답글로",
-   formula:"1줄: '솔직히 ~해서 안 올리려 했는데' 또는 '~ 너무 하고 싶음;;'. 2~3줄: 구체적으로 해본 노력(기간·방법)과 실패. 4줄: 마지막에 해본 것 + 결과 암시. 제품/방법 이름은 답글(2/2)로.",
-   example:"솔직히 너무 더러워서 안 올리려고 했는데 / 추천해준 스친 고마워서 올림 / ~ 이런 거 다 써봐도 효과 없길래 (46만 조회)"},
-  {id:"shift", name:"충격 단언 · 변화 선언", short:"'바뀌었다' + 진짜 원인",
-   formula:"1줄: '~ 바뀐 거 아직도 모르는 사람 많음;;' 또는 '~는 이미 끝물'. 2줄: 독자 상황 공감('요즘 다들 ~ 힘들지?'). 3줄: '진짜 문제는 ~가 아니라 ~임'. 답글에 바뀐 점과 해야 할 것.",
-   example:"네이버 상위노출 로직 바뀐 거 아직도 모르는 사람 많음;; / 요즘 다들 장사 힘들지? / 진짜 문제는 불경기가 아니라 마케팅 방향을 잘못 잡는 거임 (답글율·리포스트율 최상위)"},
-  {id:"expose", name:"업계 폭로 · 민낯", short:"'다들 ~인 줄 아는데'",
-   formula:"1줄: '[업계]라고 하면 다들 ~인 줄 아는데'. 2줄: '그거 다 포장된 환상임/사실은 ~'. 3줄: 지금부터 진짜를 보여주겠다 또는 '~명 중 ~명은 이걸 잘못함'. 비방·특정 업체 지목 금지.",
-   example:"마케팅 대행사라고 하면 다들 맥북 켜놓고 기발한 아이디어나 짜내는 줄 아는데 / 그거 다 포장된 환상임. (뷰티 마케팅 폭로 16만 조회)"},
-  {id:"paradox", name:"역설 · 금지 훅", short:"'절대 ~하지 마세요'",
-   formula:"1줄: '절대 ~하지 마세요. 너무 ~할 수 있습니다.' 또는 '🚨 속보)'. 2줄: 기대감 한 줄. 본문/답글 내용은 반드시 실제로 유용한 정보여야 함(호기심만 주고 비면 반응 없음).",
-   example:"절대 열어보지 마세요. 너무 유용할 수 있습니다. / 스레드에서 가장 유용한 글 일겁니다. (18만 조회, 공유 795)"},
-  {id:"magnet", name:"성과 + 댓글 리드마그넷", short:"'댓글 달면 보내줄게'",
-   formula:"1줄: 내가 얻은 성과(사용자가 준 실제 수치만). 1. 이유가 있다, n가지 공식. 2. 왕초보도 가능. <자료 이름>. 끝: '필요한 사람? 댓글 달아주면 보내줄게'. 실제로 줄 자료가 있다는 전제.",
-   example:"스레드 5분 만에 작성해서 조회수 20만 터뜨렸어! / 1. 스레드가 터지는 데는 이유가 있어. … / 댓글 달아주면 링크 배포할게! (답글 1,400)"},
+  {id:"easyq", kind:"talk", name:"답하기 쉬운 경험 질문", short:"\"하나만 알려주세요\" · 누구나 답할 수 있게",
+   formula:"1줄: 누구나 겪는 상황을 짚는다. 2줄: 특별한 지식 없이 자기 경험 하나로 답할 수 있는 질문 하나('딱 하나만', '하나씩만 알려주세요'). 필요하면 내 답을 먼저 짧게. 답글들이 모이면 그 자체로 유용한 추천 모음이 되게. 번호 목록 금지, 질문은 하나만.",
+   example:"다이소에서 가장 잘 산 물건을 묻는 글 — 111.9만 조회, 답글 1,100, 리포스트 5,500 / 자랑할 만한 자기 루틴을 묻고 '나는'으로 끊은 글 — 답글 930"},
+  {id:"helpme", kind:"talk", name:"도움 요청", short:"구체적 제약 + 고민 → 제안해달라고",
+   formula:"1줄: 내 상황과 구체적인 제약 조건. 2줄: 진짜 고민. 3줄: 독자가 쉽게 제안할 수 있는 질문 하나. 정답이 없고 참여 비용이 낮아야 함. 상황은 실제 정보만, 없으면 [대괄호].",
+   example:"특이한 성씨와 어울리는 아기 이름을 추천해달라는 글 — 34만 조회, 답글 1,700"},
+  {id:"numworry", kind:"talk", name:"숫자가 있는 현실 고민", short:"월세·매출·시간 같은 숫자로 상황 공개",
+   formula:"1줄: 현재 상황을 숫자로(사용자가 준 숫자만, 없으면 [대괄호]). 2줄: 실제 고민. 3줄: 조언받고 싶은 쟁점 하나를 질문으로. 막연한 '힘들다'보다 비교·조언할 근거를 준다. 개인·고객 민감 정보는 쓰지 않는다.",
+   example:"월세 150만 원, 하루 평균 매출 50만 원인 카페의 고민 — 11만 조회, 답글 94"},
+  {id:"choice", kind:"talk", name:"선택지 판단 질문", short:"\"A와 B 중 어떤 선택 하실래요?\"",
+   formula:"1줄: 같은 상황을 제시. 2줄: A는 장점/단점, B는 장점/단점을 한 줄씩 대비. 3줄: '여러분이라면?' 선택 기준이 분명해야 의미 있는 의견이 모인다.",
+   example:"방법 비교·우선순위·서비스 선택처럼 기준이 분명한 두 선택지를 놓고 의견을 묻는 글 (질문형 답글 중앙값은 비질문형의 2배)"},
+  {id:"twist", kind:"story", name:"예상 밖 장면 · 반전 고백", short:"정상적인 기대 → 예상 밖 사건 → 맥락",
+   formula:"1줄: 예상과 반대되는 장면이나 결과('분명 ~하려고 했는데 오히려 ~'). 또는 '솔직히 ~해서 안 올리려 했는데' 고백. 2~3줄: 궁금증을 풀어주는 맥락을 본문(또는 답글)에서 정직하게 해소. 핵심을 숨긴 채 낚시만 하지 않는다.",
+   example:"음료를 주문했는데 만들지 말라는 요청을 받은 카페 이야기 — 234.5만 조회 / 안 올리려다 올린 수건 냄새 해결 후기 — 46만 조회"},
+  {id:"daily", kind:"story", name:"진짜 사람의 일상 · 첫 인사", short:"나는 누구 → 지금 하는 일 → 진솔한 한마디",
+   formula:"1줄: 나는 어떤 사람인가(실제 정보만). 2줄: 지금 하고 있는 일이나 오늘 있었던 작은 장면. 3줄: 소박한 인사나 진솔한 감정. 거창한 교훈 대신 실제 장면이 먼저. 꾸며낸 이야기 금지.",
+   example:"광명에서 붕어빵을 굽는 청년의 첫 인사 — 43만 조회, 좋아요 8,200, 답글 1,600 / 약사가 '친구 할 사람?'으로 인사한 글 — 답글 604"},
+  {id:"opinion", kind:"story", name:"가치관이 갈리는 이야기", short:"공정함·변화처럼 입장이 갈리는 주제",
+   formula:"1줄: 공정함, 사과, 변화 가능성처럼 해석이 갈리는 실제 경험이나 상황. 2줄: 내 생각 한 줄. 3줄: '여러분은 어떻게 생각해요?' 특정인 공격·혐오·허위 주장 유도 금지, 논쟁을 억지로 만들지 않는다.",
+   example:"과거 자신을 괴롭혔던 사람이 육아 인플루언서가 된 이야기 — 36만 조회, 좋아요 7,500, 답글 554"},
+  {id:"versus", kind:"story", name:"A vs B 한 줄 대비", short:"'A를 주면 X, B를 주면 Y'",
+   formula:"1줄: 'A vs B' 또는 'A를 주면 X, B를 주면 Y'. 2줄: 왜 다른지 한 줄. 짧게 끝내거나 답글에 각각의 특징 3개씩. 독자가 스스로 대입하게.",
+   example:"남자 마케팅 vs 여자 마케팅을 나란히 놓은 글 — 37만 조회, 좋아요 9,800, 공유 2,700"},
+  {id:"fix", kind:"info", name:"해결 과정 · 전후 비교", short:"기존 방식 → 바꾼 것 → 달라진 결과",
+   formula:"1줄: 흔한 문제나 '처음엔 이렇게 했다'. 2줄: '그런데 바꾼 건 딱 n가지'. 본문/답글: 수정 전후와 그 이유를 동시에 보여줌. 결과 수치는 사용자가 준 것만. 변형: '~하지 마세요 → 대신 이렇게'.",
+   example:"AI로 릴스 대본을 고친 전후 사례 — 리포스트+공유 554 / 'ChatGPT한테 그냥 알려줘 하지 말고 이 프롬프트를' 글 — 39만 조회, 리포스트+공유 1,117"},
+  {id:"checklist", kind:"info", name:"바로 쓰는 체크리스트", short:"자주 빠뜨리는 n가지 · 오늘 바로 할 한 가지",
+   formula:"1줄: 누구에게 필요한 목록인지 + 개수('처음 시작할 때 자주 빠뜨리는 5가지'). 이어서 항목마다 실제 행동으로 이어지는 짧은 문장. 마지막에 '오늘 바로 할 한 가지'. 개수보다 실행 가능성이 중요.",
+   example:"스레드 글을 나중에 다시 보는 작은 팁 — 15만 조회, 공유 2,300 / 상위 1% 가정의 15가지 습관 목록 — 공유 2,400"},
+  {id:"authority", kind:"info", name:"현업 경력 + 단계별 방법", short:"'n년차 ~가 알려주는' + 따라 할 단계",
+   formula:"첫 단어에 '[직함/연차]가 알려주는'(사용자가 준 경력만). 대상+원하는 변화. 1. 2. 3. 바로 따라 할 단계(구체적 행동 동사). 끝: 지금 시작할 최소 행동.",
+   example:"12년 차 영어 강사의 왕초보 독학 공부법 — 26만 조회, 좋아요 3,800, 리포스트+공유 1,652"},
+  {id:"resource", kind:"info", name:"실무 자료 공유", short:"프롬프트·템플릿·무료 공개, 본문에 가치 먼저",
+   formula:"1줄: 무엇을 정리/공개했는지('제가 반복해서 쓰는 ~를 정리했습니다', '오늘 무료로 풀었다'). 2줄: 왜 공개하는지 또는 원래 얼마나 드는 일인지(사실만). 본문/답글에 실제로 복사해 쓸 수 있는 입력·예시를 넣는다. 댓글을 조건으로 핵심을 숨기지 않는다.",
+   example:"무료 SEO·GEO 자동화 스킬 소개 — 20만 조회, 리포스트+공유 3,800 / 학습용 ChatGPT 프롬프트 6개 — 39만 조회"},
+  {id:"shift", kind:"info", name:"변화 선언", short:"'~ 바뀐 거 아직 모르는 사람 많음' + 진짜 원인",
+   formula:"1줄: '~ 바뀐 거 아직도 모르는 사람 많음' 또는 '~는 이미 끝물'(근거 있는 변화만). 2줄: 독자 상황 공감. 3줄: '진짜 문제는 ~가 아니라 ~'. 답글에 바뀐 점과 해야 할 것.",
+   example:"네이버 상위노출 로직 변화를 짚은 글 — 답글율·리포스트율 최상위권"},
+  {id:"expose", kind:"info", name:"업계 현실 · 민낯", short:"'다들 ~인 줄 아는데' + 일하는 사람만 아는 것",
+   formula:"1줄: '[업계]라고 하면 다들 ~인 줄 아는데'. 2줄: '실제로는 ~'. 3줄: 실제 작업 과정이나 현업 경험을 보여주겠다. 비방·특정 업체 지목 금지.",
+   example:"'업계 폭로하는 글이 반응이 좋네'로 뷰티 마케팅 현실을 묻는 글 — 16만 조회"},
+  {id:"magnet", kind:"info", name:"자료 신청 받기", short:"본문에 핵심 먼저 + 더 필요한 사람은 댓글",
+   formula:"1줄: 내가 얻은 결과(사용자가 준 수치만). 2~3줄: 핵심 방법 1~2개를 본문에서 먼저 공개. 끝: '전체 자료가 필요한 분은 댓글 남겨주세요'. 실제로 줄 자료가 있다는 전제. 댓글 수에 보상 목적 반응이 섞인다는 점 유의.",
+   example:"스레드 글쓰기 공식을 댓글로 배포한 글 — 답글 1,400 (자발적 대화와 자료 신청이 섞임)"},
 ];
+const LEGACY={beforeafter:"fix",openq:"easyq",list:"checklist",free:"resource",friend:"daily",confess:"twist",paradox:"twist"};
 const SNUM = Object.fromEntries(STRUCTS.map((s,i)=>[s.id,i+1]));
 const GOALS = [
-  {id:"view",  name:"조회수",     desc:"많이 보이게",       rec:["confess","versus"]},
-  {id:"like",  name:"좋아요",     desc:"공감 받기",         rec:["versus","list"]},
-  {id:"reply", name:"답글",       desc:"대화 열기",         rec:["openq","friend"]},
-  {id:"repost",name:"리포스트",   desc:"퍼뜨리기",          rec:["shift","list"]},
-  {id:"share", name:"공유·저장",  desc:"다시 보게",         rec:["beforeafter","free"]},
-  {id:"follow",name:"팔로우·신뢰",desc:"전문가로 보이게",    rec:["authority","friend"]},
-  {id:"db",    name:"DB 수집",    desc:"댓글로 연락 받기",   rec:["magnet"]},
+  {id:"view",   name:"조회수",      desc:"관심 끌기",          metric:"조회수",              rec:["twist","daily","versus"]},
+  {id:"talk",   name:"답글·대화",   desc:"이야기 나누기",       metric:"답글률",              rec:["easyq","helpme","numworry"]},
+  {id:"like",   name:"공감·좋아요", desc:"마음 얻기",          metric:"좋아요율",            rec:["daily","versus","opinion"]},
+  {id:"spread", name:"공유·확산",   desc:"남에게 보내게",       metric:"공유·리포스트율",      rec:["resource","checklist","fix"]},
+  {id:"trust",  name:"신뢰·팔로우", desc:"전문가로 보이게",     metric:"유의미한 답글·팔로우",  rec:["authority","fix","expose"]},
+  {id:"action", name:"문의·신청",   desc:"행동으로 이어지게",    metric:"문의·신청·클릭",       rec:["fix","authority","magnet"]},
+];
+const FIELDS = [
+  {id:"",          name:"자동"},
+  {id:"marketing", name:"마케팅",    guide:"현장 문제 → 실제 사례 → 접근법이나 체크리스트. 함께 이야기할 현실 문제는 답글에, 바로 쓰는 실무 자료는 공유에 유리."},
+  {id:"growth",    name:"자기계발",  guide:"독자가 원하는 변화 → 실행 단계 → 지금 바로 시작할 최소 행동. 따라 하기 쉬운 단계와 개인의 변화를 강조."},
+  {id:"insta",     name:"인스타그램",guide:"흔한 제작 문제 → 기존 방식 → 개선한 방식 → 얻은 결과. 구체적인 문제 해결과 전후 비교를 강조."},
+  {id:"threads",   name:"스레드",    guide:"사용 중 겪는 불편 → 간단한 해결법 → 사용법 설명. 바로 쓰는 작은 팁도 공유된다."},
+  {id:"ai",        name:"AI",        guide:"해결할 문제 → 사용한 방법 → 재현 가능한 입력·단계 → 실제 결과. 도구 이름보다 산출물, 시간 절약, 재사용 가능성이 중요. 독자가 그대로 복사해 쓸 프롬프트·예시를 넣는다."},
+  {id:"life",      name:"일상·가게", guide:"실제 장면과 사람이 먼저. 생활감, 진솔한 감정, 구체적인 숫자가 있는 현실 고민이 응원과 조언을 부른다."},
 ];
 const ICON={
   check:'<svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2 5 8.5l4.5-5"/></svg>',
@@ -435,7 +467,8 @@ const store = {
 const state = {
   tone:"반말",
   goal:null,
-  picked:new Set(["beforeafter","openq"]),
+  field:"",
+  picked:new Set(["fix","easyq"]),
   showAll:false,
   saved:store.get("tw_saved",[]),
 };
@@ -448,13 +481,24 @@ function renderGoals(){
     b.type="button"; b.className="goal";
     const n=document.createElement("b"); n.textContent=g.name;
     const d=document.createElement("small"); d.textContent=g.desc;
-    b.append(n,d);
+    const m=document.createElement("span"); m.className="metric"; m.textContent="볼 지표 · "+g.metric;
+    b.append(n,d,m);
     b.setAttribute("aria-pressed", String(state.goal===g.id));
     b.onclick=()=>{
       state.goal = state.goal===g.id ? null : g.id;
       if(state.goal){ state.picked=new Set(g.rec); }
       renderGoals(); renderStructs(); saveCfg();
     };
+    box.append(b);
+  }
+}
+const KIND_LABEL={talk:"대화형",story:"이야기형",info:"정보형"};
+function renderFields(){
+  const box=$("#fields"); box.textContent="";
+  for(const f of FIELDS){
+    const b=document.createElement("button"); b.type="button"; b.className="fchip"; b.textContent=f.name;
+    b.setAttribute("aria-pressed",String(state.field===f.id));
+    b.onclick=()=>{state.field=f.id;renderFields();saveCfg()};
     box.append(b);
   }
 }
@@ -473,6 +517,7 @@ function renderStructs(){
     const top=document.createElement("span"); top.className="top";
     const no=document.createElement("span"); no.className="no"; no.textContent=String(i+1).padStart(2,"0");
     top.append(no);
+    const k=document.createElement("span"); k.className="kind"; k.textContent=KIND_LABEL[s.kind]; top.append(k);
     if(rec.includes(s.id)){const r=document.createElement("span");r.className="rec";r.textContent="추천";top.append(r)}
     const t=document.createElement("b"); t.textContent=s.name;
     const d=document.createElement("small"); d.textContent=s.short;
@@ -485,7 +530,7 @@ function renderStructs(){
     box.append(b);
   });
   box.classList.toggle("collapsed",!state.showAll);
-  $("#moreStructs").textContent = state.showAll ? "고른 구조만 보기" : "구조 12개 모두 보기";
+  $("#moreStructs").textContent = state.showAll ? "고른 구조만 보기" : "구조 15개 모두 보기";
   updGoCount();
 }
 $("#moreStructs").onclick=()=>{state.showAll=!state.showAll;renderStructs()};
@@ -503,7 +548,7 @@ bindSeg("#tone",v=>{state.tone=v;saveCfg()});
 bindSeg("#countSeg",v=>{$("#count").value=v;updGoCount();saveCfg()});
 const CFG_FIELDS=["niche","target","topic","facts","count"];
 function saveCfg(){
-  const c={tone:state.tone,goal:state.goal,picked:[...state.picked]};
+  const c={tone:state.tone,goal:state.goal,field:state.field,picked:[...state.picked]};
   for(const f of CFG_FIELDS) c[f]=$("#"+f).value;
   store.set("tw_cfg",c);
   updAvatar();
@@ -517,8 +562,13 @@ function loadCfg(){
     return;
   }
   for(const f of CFG_FIELDS) if(c[f]!=null) $("#"+f).value=c[f];
-  state.tone=c.tone||"반말"; state.goal=c.goal||null;
-  if(Array.isArray(c.picked)&&c.picked.length) state.picked=new Set(c.picked.filter(id=>SNUM[id]));
+  state.tone=c.tone||"반말";
+  state.goal=GOALS.some(g=>g.id===c.goal)?c.goal:null;
+  state.field=FIELDS.some(f=>f.id===c.field)?c.field:"";
+  if(Array.isArray(c.picked)&&c.picked.length){
+    const ids=c.picked.map(id=>LEGACY[id]||id).filter(id=>SNUM[id]);
+    if(ids.length) state.picked=new Set(ids);
+  }
   setSeg("#tone",state.tone); setSeg("#countSeg",$("#count").value||"2");
 }
 for(const f of CFG_FIELDS) $("#"+f).addEventListener("input",saveCfg);
@@ -529,13 +579,25 @@ function cfg(){
     niche:$("#niche").value.trim(), target:$("#target").value.trim(),
     topic:$("#topic").value.trim(), facts:$("#facts").value.trim(),
     tone:state.tone, count:Number($("#count").value)||2,
-    goal: state.goal ? GOALS.find(g=>g.id===state.goal).name : "",
+    goal: state.goal ? GOALS.find(g=>g.id===state.goal) : null,
+    field: FIELDS.find(f=>f.id===state.field&&f.guide)||null,
   };
 }
+const KIND_RULE={
+  talk:"대화형: 첫 글은 40~120자로 짧게. 번호 목록 쓰지 말 것. 누구나 답하기 쉬운 질문 하나로 끝낸다. 답글(2/2)은 내 답을 짧게 쓰거나 필요 없으면 빈 문자열.",
+  story:"이야기형: 첫 글은 40~160자. 실제 장면이 먼저, 교훈은 짧게. 궁금증을 열었다면 본문이나 답글에서 정직하게 풀어준다.",
+  info:"정보형: 첫 글은 120~400자까지 괜찮다. 독자가 오늘 바로 쓸 수 있는 구체적인 방법·입력·예시를 본문이나 답글에 실제로 넣는다. 마무리는 핵심 요약, 사용 예시, 다음 행동 중 하나.",
+};
 function buildPrompt(c, ids, count, extra){
   const structs = ids.map(id=>STRUCTS.find(s=>s.id===id));
   const total = structs.length*count;
-  return `너는 한국어 스레드(Threads) 글을 쓰는 작가야. 조회수 3만 이상 스레드 글 137개를 분석해서 나온 구조를 그대로 따라 글을 써.
+  return `너는 한국어 스레드(Threads) 글을 쓰는 작가야. 조회수 1만 이상 게시물 500개와 분야별 인기 게시물 150개를 분석해서 나온 구조를 따라 글을 써.
+
+[핵심 원칙]
+- 왜 읽어야 하는지는 첫 문장에서, 무엇을 얻는지는 본문에서, 어떻게 반응하면 되는지는 마무리에서 알 수 있게.
+- 높은 성과 글의 흐름: 시선 확보(예상 밖 상황·궁금증·익숙한 문제) → 감정 연결(공감·웃음·놀람·응원·해결 기대) → 참여·전달 유도(내 경험 말하기, 의견 고르기, 남에게 보내기).
+- 고조회수 글의 절반은 80자 미만이었다. 짧게 쓰되, 정보형은 길어도 된다. 불필요한 설명부터 줄인다.
+- 질문이 있는 글은 답글이 2배 많았다. 단 질문은 누구나 쉽게 답할 수 있고 답하고 싶은 것이어야 한다. 번호 목록은 댓글을 늘리지 않으니 대화형에는 쓰지 않는다.
 
 [계정]
 - 분야·소개: ${c.niche||"(미입력)"}
@@ -547,20 +609,22 @@ ${c.topic}
 
 [실제 경험·수치 — 여기 있는 것만 사실로 써도 됨]
 ${c.facts||"없음"}
-${c.goal?`\n[원하는 반응]\n${c.goal}\n`:""}
+${c.goal?`\n[원하는 반응]\n${c.goal.name} (볼 지표: ${c.goal.metric})\n`:""}${c.field?`\n[분야별 전개 — ${c.field.name}]\n${c.field.guide}\n`:""}
 [써야 할 구조] 각 구조마다 ${count}개씩, 총 ${total}개
-${structs.map(s=>`■ id: ${s.id} / ${s.name}
+${structs.map(s=>`■ id: ${s.id} / ${s.name} (${KIND_LABEL[s.kind]})
   공식: ${s.formula}
-  실제로 터진 예시: ${s.example}`).join("\n")}
+  관찰된 사례: ${s.example}
+  길이·마무리: ${KIND_RULE[s.kind]}`).join("\n")}
 
 [규칙]
-1. main은 스레드 첫 글(1/2). 첫 줄이 훅이고, 첫 줄은 25자 안팎으로 짧게. 한 줄에 한 문장, 줄바꿈 자주. 150~350자, 최대 480자.
+1. main은 스레드 첫 글(1/2). 첫 1~2문장에서 계속 읽을 이유가 생겨야 한다. 첫 줄은 25자 안팎. 한 줄에 한 문장, 줄바꿈 자주. 최대 480자.
 2. reply는 첫 글에 이어 다는 답글(2/2). 본문에서 끊은 답, 목록, 프롬프트, 방법을 여기서 풀어. 최대 480자. 그 구조에 답글이 필요 없으면 빈 문자열 "".
-3. [실제 경험·수치]에 없는 성과·매출·조회수·팔로워 수·후기·인물·연구 결과를 지어내지 마. 그런 자리가 필요하면 [대괄호 안에 무엇을 넣을지 설명]으로 비워 둬. 일반적인 사실이나 방법은 써도 돼.
-4. 해시태그는 쓰지 마. 대신 tag에 스레드 주제 태그로 쓸 단어 하나.
-5. 이모지는 글 하나에 많아야 2개.
-6. 같은 구조로 여러 개 쓸 땐 훅 문장과 각도를 서로 확실히 다르게.
-7. 광고처럼 보이지 않게. 특정 업체를 비방하지 마.${extra?`\n8. ${extra}`:""}
+3. [실제 경험·수치]에 없는 성과·매출·조회수·팔로워 수·후기·인물·연구 결과·경력을 지어내지 마. 그런 자리가 필요하면 [대괄호 안에 무엇을 넣을지 설명]으로 비워 둬. 일반적인 사실이나 방법은 써도 돼.
+4. 평범한 이야기라도 구체적인 장면·숫자·경험을 넣어. 숫자가 없으면 [대괄호]로.
+5. 모든 글을 질문으로 끝내지 마. 구조에 맞게 질문, 핵심 요약, 사용 예시, 다음 행동 중 하나로 마무리.
+6. 핵심을 숨긴 낚시, 억지 논쟁, 특정인·업체 공격, 혐오, 근거 없는 건강·안전 주장, '무조건·100%·보장' 같은 과장 금지. 자료를 받으려면 댓글을 달라는 식으로 본문 가치를 숨기지 마(자료 신청 받기 구조만 예외, 그때도 핵심 1~2개는 본문에 공개).
+7. 해시태그는 쓰지 마. 대신 tag에 스레드 주제 태그로 쓸 단어 하나. 이모지는 글 하나에 많아야 2개.
+8. 같은 구조로 여러 개 쓸 땐 훅 문장과 각도를 서로 확실히 다르게. 광고처럼 보이지 않게.${extra?`\n9. ${extra}`:""}
 
 [출력 형식]
 한 줄에 JSON 객체 하나씩, 총 ${total}줄. 앞뒤에 다른 말이나 코드블록 없이.
@@ -571,18 +635,28 @@ ${structs.map(s=>`■ id: ${s.id} / ${s.name}
 function initial(){const s=($("#niche").value||"").trim();return s?s[0]:"나"}
 function updAvatar(){const i=initial();document.querySelectorAll(".avatar").forEach(a=>a.textContent=i)}
 function autosize(t){t.style.height="auto";t.style.height=t.scrollHeight+"px"}
-function checks(main, reply){
+function checks(main, reply, kind){
   const lines=main.split("\n").filter(l=>l.trim());
   const first=(lines[0]||"").trim();
   const all=main+"\n"+reply;
-  const endsOpen=/[?？]\s*$|나는\s*$|👇|저장|댓글|이유는\s*$|뭐냐면\s*$|건\s*$/.test(main.trim());
-  return [
+  const len=main.replace(/\s/g,"").length;
+  const maxLen=kind==="talk"?120:kind==="story"?160:400;
+  const hasQ=/[?？]/.test(main);
+  const numbered=/(^|\n)\s*\d+[.)]\s/.test(main);
+  const out=[
     {t:`첫 줄 ${first.length}자`, s: first.length<=30?"ok":"warn"},
-    {t:"숫자 있음", s:/\d/.test(all)?"ok":"none", alt:"숫자 없음"},
-    {t:"끝이 열려 있음", s:endsOpen?"ok":"none", alt:"끝이 닫혀 있음"},
-    {t:"500자 이내", s:(main.length<=500&&reply.length<=500)?"ok":"warn", alt:"500자 넘음"},
-    ...( /\[[^\]]+\]/.test(all) ? [{t:"[대괄호] 채우기", s:"warn"}] : []),
+    {t:`첫 글 ${len}자`, s: len<=maxLen?"ok":"warn", alt:`첫 글 ${len}자 · 길어요`},
   ];
+  if(kind==="talk"){
+    out.push({t:"답하기 쉬운 질문", s:hasQ?"ok":"warn", alt:"질문이 없어요"});
+    if(numbered) out.push({t:"대화형엔 번호 목록 빼기", s:"warn"});
+  }else{
+    out.push({t:"숫자·구체성", s:/\d/.test(all)?"ok":"none", alt:"숫자 없음"});
+  }
+  out.push({t:"500자 이내", s:(main.length<=500&&reply.length<=500)?"ok":"warn", alt:"500자 넘음"});
+  if(/무조건|100%|보장|절대로/.test(all)) out.push({t:"과장 표현 확인", s:"warn"});
+  if(/\[[^\]]+\]/.test(all)) out.push({t:"[대괄호] 채우기", s:"warn"});
+  return out;
 }
 function postBlock(part, value, onChange){
   const wrap=document.createElement("div"); wrap.className="post";
@@ -611,7 +685,8 @@ function iconBtn(icon,label,fn){
   b.onclick=()=>fn(b);return b;
 }
 function makeCard(p, opts={}){
-  const s=STRUCTS.find(x=>x.id===p.structure)||{name:p.structure,id:p.structure};
+  if(LEGACY[p.structure]) p.structure=LEGACY[p.structure];
+  const s=STRUCTS.find(x=>x.id===p.structure)||{name:p.structure,id:p.structure,kind:"info"};
   const card=document.createElement("article"); card.className="post-card"+(opts.fresh?" new":"");
   const head=document.createElement("div"); head.className="pc-head";
   const badge=document.createElement("span"); badge.className="badge";
@@ -625,7 +700,7 @@ function makeCard(p, opts={}){
   const th=document.createElement("div"); th.className="thread";
   const hasReply = (p.reply||"").trim().length>0;
   const ck=document.createElement("div"); ck.className="checks";
-  const drawChecks=()=>{ck.textContent="";for(const c of checks(p.main,p.reply||"")){const e=document.createElement("span");e.className="ck "+(c.s==="ok"?"ok":c.s==="warn"?"warn":"");e.textContent=c.s==="none"?(c.alt||c.t):(c.s==="warn"&&c.alt?c.alt:c.t);ck.append(e)}};
+  const drawChecks=()=>{ck.textContent="";for(const c of checks(p.main,p.reply||"",s.kind)){const e=document.createElement("span");e.className="ck "+(c.s==="ok"?"ok":c.s==="warn"?"warn":"");e.textContent=c.s==="none"?(c.alt||c.t):(c.s==="warn"&&c.alt?c.alt:c.t);ck.append(e)}};
   const commit=()=>{drawChecks(); if(opts.onEdit) opts.onEdit(p)};
 
   const r1=document.createElement("div"); r1.className="rail";
@@ -905,16 +980,16 @@ async function regenOne(p, card, btn){
 
 /* ---------- 시작 ---------- */
 const EXAMPLES=[
-  {structure:"beforeafter",example:true,tag:"자영업자이야기",
+  {structure:"fix",example:true,tag:"자영업자이야기",
    main:"사장님들 AI한테 \"리뷰 답글 써줘\" 한 줄만 치지 마세요\n\n그러면 어느 가게에나 붙일 수 있는 답글이 나와요\n\n대신 아래 3줄만 붙여보세요\n손님이 우리 가게 단골인 줄 알 거예요 👇",
    reply:"1. \"너는 [가게명] 사장이야. 말투는 [친근하게]\"\n2. \"손님이 말한 메뉴 이름을 꼭 다시 언급해줘\"\n3. \"이모지는 1개만, 마지막 줄은 다음 방문 인사\"\n\n별점 낮은 리뷰엔 이 한 줄 추가\n\"변명 말고 사과 + 개선 약속 한 문장\"",
    why:"흔한 행동을 지적하고 바로 붙여 쓸 대안을 줘서 저장·공유가 나오기 쉬운 구조예요."},
-  {structure:"openq",example:true,tag:"자영업자이야기",
-   main:"사장님들 리뷰 답글 하루에 몇 개 다세요?\n\n저는 [하루 리뷰 수]개요",
-   reply:"솔직히 처음엔 하나하나 손으로 쓰다가 [몇 시]까지 붙잡고 있었어요\n\n요즘은 AI로 초안 뽑고 말투만 고쳐요\n\n다른 사장님들은 어떻게 하세요?",
-   why:"누구나 숫자로 답할 수 있는 질문이라 답글이 달리기 쉬워요."},
+  {structure:"easyq",example:true,tag:"자영업자이야기",
+   main:"사장님들 가게 하면서 제일 잘 써먹은 AI 활용법 하나씩만 알려주세요\n\n저는 리뷰 답글 초안이요",
+   reply:"",
+   why:"특별한 지식 없이 자기 경험 하나로 답할 수 있고, 답글이 모이면 그 자체로 추천 모음이 돼요."},
 ];
-loadCfg(); renderGoals(); renderStructs(); updSavedN();
+loadCfg(); renderFields(); renderGoals(); renderStructs(); updSavedN();
 for(const ex of EXAMPLES) $("#feed").append(makeCard(ex));
 const lastTab=store.get("tw_tab","tabNew"); if(TABS[lastTab]&&lastTab!=="tabNew") $("#"+lastTab).click();
 </script>
