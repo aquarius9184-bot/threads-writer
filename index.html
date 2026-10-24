@@ -138,6 +138,8 @@ textarea{resize:vertical;min-height:70px;line-height:1.55}
 .st[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
 .st[aria-pressed=true] .tick{background:var(--accent);border-color:var(--accent)}
 .st[aria-pressed=true] .tick svg{opacity:1}
+.structs.full .st[aria-pressed=false]{opacity:.45}
+.structs.full .st[aria-pressed=false]:hover{box-shadow:none;border-color:var(--line)}
 .more{align-self:flex-start;border:0;background:none;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;padding:2px 0}
 .mobile-only{display:none}
 @media (max-width:960px){
@@ -493,6 +495,7 @@ function renderGoals(){
   }
 }
 const KIND_LABEL={talk:"대화형",story:"이야기형",info:"정보형"};
+const MAX_PICK=3;
 function renderFields(){
   const box=$("#fields"); box.textContent="";
   for(const f of FIELDS){
@@ -505,7 +508,7 @@ function renderFields(){
 function updGoCount(){
   const n=state.picked.size*(Number($("#count").value)||2);
   $("#goCnt").textContent = n ? n+"개" : "";
-  $("#pickedN").textContent = state.picked.size ? state.picked.size+"개 선택" : "구조를 골라주세요";
+  $("#pickedN").textContent = state.picked.size ? `${state.picked.size} / ${MAX_PICK}개 선택` : `최대 ${MAX_PICK}개까지 골라주세요`;
 }
 function renderStructs(){
   const box=$("#structs"); box.textContent="";
@@ -524,12 +527,16 @@ function renderStructs(){
     const tick=document.createElement("span"); tick.className="tick"; tick.innerHTML=ICON.check;
     b.append(top,t,d,tick);
     b.onclick=()=>{
-      state.picked.has(s.id)?state.picked.delete(s.id):state.picked.add(s.id);
+      if(state.picked.has(s.id)) state.picked.delete(s.id);
+      else if(state.picked.size>=MAX_PICK){ status(`구조는 최대 ${MAX_PICK}개까지 고를 수 있어요. 하나를 빼고 골라주세요.`,true); return; }
+      else state.picked.add(s.id);
+      status("");
       renderStructs(); saveCfg();
     };
     box.append(b);
   });
   box.classList.toggle("collapsed",!state.showAll);
+  box.classList.toggle("full",state.picked.size>=MAX_PICK);
   $("#moreStructs").textContent = state.showAll ? "고른 구조만 보기" : "구조 15개 모두 보기";
   updGoCount();
 }
@@ -567,7 +574,7 @@ function loadCfg(){
   state.field=FIELDS.some(f=>f.id===c.field)?c.field:"";
   if(Array.isArray(c.picked)&&c.picked.length){
     const ids=c.picked.map(id=>LEGACY[id]||id).filter(id=>SNUM[id]);
-    if(ids.length) state.picked=new Set(ids);
+    if(ids.length) state.picked=new Set(ids.slice(0,3));
   }
   setSeg("#tone",state.tone); setSeg("#countSeg",$("#count").value||"2");
 }
