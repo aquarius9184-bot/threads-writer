@@ -44,6 +44,7 @@ input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--a
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.primary:hover{background:var(--accent-2)}
 .btn:disabled{opacity:.55;cursor:default}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
 .muted{color:var(--muted);font-size:13px;margin:0}
 .status{font-size:13px;color:var(--muted);min-height:1.4em;margin:0}
 .status.err{color:var(--bad)}
@@ -108,7 +109,7 @@ async function load(){
   if(!me?.is_admin){ $("#panel").hidden=true; $("#loginBox").hidden=false; status("관리자 계정이 아니에요. 관리자 이메일로 로그인해주세요.",true); return }
   $("#loginBox").hidden=true; $("#panel").hidden=false;
   const [{data:users,error},{data:usage}]=await Promise.all([
-    sb.from("profiles").select("id,email,approved,is_admin,daily_limit,created_at").order("created_at",{ascending:false}),
+    sb.from("profiles").select("id,email,approved,is_admin,daily_limit,created_at,must_change_pw").order("created_at",{ascending:false}),
     sb.from("usage").select("user_id,count").eq("day",today()),
   ]);
   if(error){status("회원 목록을 불러오지 못했어요: "+error.message,true);return}
@@ -128,7 +129,7 @@ function row(u,usedToday){
   const who=document.createElement("div"); who.className="who";
   const b=document.createElement("b"); b.textContent=u.email;
   const sm=document.createElement("small");
-  sm.textContent=`가입 ${new Date(u.created_at).toLocaleDateString("ko-KR")} · 오늘 ${usedToday}회 사용`;
+  sm.textContent=`가입 ${new Date(u.created_at).toLocaleDateString("ko-KR")} · 오늘 ${usedToday}회 사용`+(u.must_change_pw?" · 임시 비밀번호(000000) 사용 중":"");
   who.append(b,sm);
   const ctrl=document.createElement("div"); ctrl.className="ctrl";
   const tag=document.createElement("span"); tag.className="tag "+(u.is_admin?"adm":u.approved?"ok":"wait");
@@ -144,10 +145,35 @@ function row(u,usedToday){
     const tog=document.createElement("button"); tog.type="button";
     tog.className="btn"+(u.approved?"":" primary"); tog.textContent=u.approved?"승인 취소":"승인";
     tog.onclick=()=>update(u.id,{approved:!u.approved},tog,u.approved?"승인을 취소했어요.":"승인했어요.");
-    ctrl.append(tog);
+    const rs=document.createElement("button"); rs.type="button"; rs.className="btn"; rs.textContent="비밀번호 초기화";
+    let armed=null;
+    rs.onclick=()=>{
+      if(!armed){ // 실수로 누르지 않게 한 번 더 확인
+        rs.textContent="000000으로 초기화할까요? 한 번 더 누르세요"; rs.classList.add("danger");
+        armed=setTimeout(()=>{armed=null;rs.textContent="비밀번호 초기화";rs.classList.remove("danger")},4000);
+        return;
+      }
+      clearTimeout(armed); armed=null; rs.classList.remove("danger");
+      resetPw(u,rs);
+    };
+    ctrl.append(tog,rs);
   }
   el.append(who,ctrl);
   return el;
+}
+async function resetPw(u,btn){
+  btn.disabled=true; btn.textContent="초기화하는 중…";
+  const {data:{session}}=await sb.auth.getSession();
+  let res=null; try{
+    res=await fetch(SUPABASE_URL+"/functions/v1/admin-reset-password",{method:"POST",
+      headers:{"content-type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+(session?.access_token||"")},
+      body:JSON.stringify({user_id:u.id})});
+  }catch{}
+  btn.disabled=false; btn.textContent="비밀번호 초기화";
+  let b={}; try{b=await res.json()}catch{}
+  if(res?.ok){ status(`${u.email} 비밀번호를 000000으로 초기화했어요. 로그인하면 새 비밀번호로 바꾸라는 창이 떠요.`); load(); return }
+  const msg={not_admin:"관리자만 초기화할 수 있어요.",target_is_admin:"관리자 계정은 여기서 초기화할 수 없어요.",session_expired:"로그인이 만료됐어요. 다시 로그인해주세요.",not_found:"회원을 찾지 못했어요."}[b.code]||"초기화하지 못했어요. 잠시 뒤 다시 해주세요.";
+  status(msg,true);
 }
 async function update(id,patch,btn,ok){
   btn.disabled=true;

@@ -366,7 +366,13 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
         <button type="button" class="btn solid" id="login">로그인</button>
         <button type="button" class="btn" id="signup">회원가입</button>
       </div>
-      <p class="hint">회원가입 후 관리자가 승인하면 하루 정해진 횟수만큼 쓸 수 있어요.</p>
+      <p class="hint">회원가입 후 관리자가 승인하면 하루 정해진 횟수만큼 쓸 수 있어요. 비밀번호를 잊었다면 관리자에게 초기화를 요청하세요.</p>
+    </div>
+    <div id="acctPw" class="field" style="gap:10px" hidden>
+      <p class="hint" style="font-size:13px;color:var(--ink-2)">임시 비밀번호로 로그인했어요. 계속 쓰려면 새 비밀번호를 정해주세요.</p>
+      <input type="password" id="newPw" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
+      <input type="password" id="newPw2" placeholder="새 비밀번호 한 번 더" autocomplete="new-password">
+      <div class="row"><button type="button" class="btn solid" id="savePw">새 비밀번호 저장</button></div>
     </div>
     <div id="acctIn" class="field" style="gap:10px" hidden>
       <div class="acct-line"><b id="acctEmail"></b><span class="ck" id="acctState"></span></div>
@@ -834,7 +840,7 @@ async function getSample(){
   let s=null;
   try{ if(window.claude) s=await window.claude.use("sample") }catch{}
   if(s) return s;
-  return (sb&&session&&me?.approved)?serverSample():null;
+  return (sb&&session&&me?.approved&&!me.must_change_pw)?serverSample():null;
 }
 
 /* ---------- 회원 ---------- */
@@ -845,9 +851,12 @@ $("#acctBtn").onclick=openAcct;
 $("#dlgClose").onclick=closeAcct;
 dlg.addEventListener("click",e=>{ if(e.target===dlg) closeAcct() });
 function dlgStatus(t,err){const s=$("#dlgStatus");s.textContent=t;s.classList.toggle("err",!!err)}
+let pwPrompted=false;
 function renderAcct(){
-  $("#acctOut").hidden=!!session; $("#acctIn").hidden=!session;
-  $("#dlgTitle").textContent = session ? "내 계정" : "로그인";
+  const mustPw=!!(session&&me?.must_change_pw);
+  $("#acctOut").hidden=!!session; $("#acctIn").hidden=!session||mustPw; $("#acctPw").hidden=!mustPw;
+  $("#dlgTitle").textContent = mustPw ? "새 비밀번호 설정" : session ? "내 계정" : "로그인";
+  if(mustPw&&!pwPrompted){pwPrompted=true;openAcct();setTimeout(()=>$("#newPw").focus(),40)}
   const av=$("#acctAv"), t=$("#acctBtnT"), q=$("#acctBtnQ");
   if(!session){ av.textContent="?"; t.textContent="로그인"; q.textContent=""; return }
   const email=session.user?.email||"";
@@ -876,6 +885,8 @@ const AUTH_ERR=m=>/Invalid login/i.test(m)?"이메일이나 비밀번호가 맞�
   :/already registered/i.test(m)?"이미 가입된 이메일이에요. 로그인해주세요."
   :/at least 6|Password should/i.test(m)?"비밀번호는 6자 이상이어야 해요."
   :/rate limit|too many/i.test(m)?"요청이 너무 많아요. 잠시 뒤 다시 해주세요."
+  :/different from the old|same as/i.test(m)?"지금 비밀번호와 다른 비밀번호로 정해주세요."
+  :/reauthentication|recent/i.test(m)?"보안을 위해 다시 로그인한 뒤 바꿔주세요."
   :/valid email|invalid format/i.test(m)?"이메일 형식을 확인해주세요."
   :"문제가 생겼어요: "+m;
 function creds(){
@@ -905,7 +916,20 @@ function initAuth(){
     else if(!data.session) dlgStatus("인증 메일을 보냈어요. 메일의 링크를 누르면 가입이 끝나요.");
     else dlgStatus("가입했어요. 관리자가 승인하면 쓸 수 있어요.");
   };
-  $("#logout").onclick=async()=>{await sb.auth.signOut();dlgStatus("로그아웃했어요.")};
+  $("#logout").onclick=async()=>{await sb.auth.signOut();pwPrompted=false;dlgStatus("로그아웃했어요.")};
+  $("#savePw").onclick=async()=>{
+    const a=$("#newPw").value, b=$("#newPw2").value;
+    if(a.length<6){dlgStatus("비밀번호는 6자 이상이어야 해요.",true);return}
+    if(a!==b){dlgStatus("두 비밀번호가 서로 달라요.",true);return}
+    if(a==="000000"){dlgStatus("임시 비밀번호와 다른 비밀번호로 정해주세요.",true);return}
+    $("#savePw").disabled=true;
+    const {error}=await sb.auth.updateUser({password:a});
+    if(error){$("#savePw").disabled=false;dlgStatus(AUTH_ERR(error.message),true);return}
+    await sb.rpc("clear_must_change");
+    $("#savePw").disabled=false; $("#newPw").value=""; $("#newPw2").value="";
+    dlgStatus("새 비밀번호로 바꿨어요."); refreshMe();
+  };
+  $("#newPw2").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#savePw").click()}});
   $("#pw").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#login").click()}});
   $("#email").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#pw").focus()}});
 }
@@ -944,6 +968,7 @@ $("#form").addEventListener("submit",async e=>{
     if(sb){
       if(!session){status("로그인하면 쓸 수 있어요.",true);dlgStatus("처음이면 회원가입부터 해주세요.");openAcct()}
       else if(!me) {status("회원 정보를 확인하는 중이에요. 잠시 뒤 다시 눌러주세요.",true);refreshMe()}
+      else if(me.must_change_pw) {status("새 비밀번호를 먼저 정해주세요.",true);openAcct()}
       else {status(ERR.not_approved,true);openAcct()}
       return;
     }
