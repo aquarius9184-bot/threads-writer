@@ -112,6 +112,22 @@ textarea{resize:vertical;min-height:70px;line-height:1.55}
 .fchip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:500;color:var(--ink-2);cursor:pointer;transition:all .15s}
 .fchip:hover{border-color:var(--line-2)}
 .fchip[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:var(--bg);font-weight:700}
+.presets{padding:16px 22px;border-bottom:1px solid var(--line);background:var(--surface-2);border-radius:var(--r-l) var(--r-l) 0 0;display:flex;flex-direction:column;gap:10px}
+.presets-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.presets-h h2{margin:0;font-size:14px;font-weight:700}
+.presets-h .btn{margin-left:auto;padding:7px 12px;font-size:13px}
+.preset-new{display:flex;gap:6px;flex-wrap:wrap}
+.preset-new input{flex:1 1 180px}
+.preset-new .btn{padding:7px 12px;font-size:13px}
+.preset-new[hidden]{display:none}
+.pchip{display:inline-flex;align-items:stretch;border:1px solid var(--line);background:var(--surface);border-radius:999px;overflow:hidden;max-width:100%}
+.pchip button{border:0;background:transparent;font:inherit;font-size:13px;color:var(--ink-2);cursor:pointer;padding:5px 4px 5px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pchip button.x{padding:5px 10px 5px 6px;color:var(--muted)}
+.pchip button:hover{color:var(--ink)}
+.pchip[aria-current=true]{border-color:var(--navy);background:var(--navy)}
+.pchip[aria-current=true] button{color:var(--bg);font-weight:700}
+.presets .empty{font-size:12px;color:var(--muted);margin:0}
+.presets .msg{font-size:12px;color:var(--accent);margin:0;min-height:1em}
 .goal .metric{font-size:10.5px;color:var(--muted);margin-top:3px;font-family:var(--font-mono);letter-spacing:-.01em}
 .goal[aria-pressed=true] .metric{color:var(--accent)}
 .st .kind{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px}
@@ -248,7 +264,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 
 <header class="appbar gutter">
   <div class="inner">
-    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.01</span></div>
+    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.02</span></div>
     <button type="button" class="acct-btn" id="acctBtn" hidden>
       <span class="av" id="acctAv">?</span><span class="t" id="acctBtnT">로그인</span><span class="q" id="acctBtnQ"></span>
     </button>
@@ -274,6 +290,16 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 <main class="gutter">
   <div class="inner grid">
     <form class="composer" id="form" autocomplete="off">
+      <section class="presets" aria-labelledby="presetsH">
+        <div class="presets-h"><h2 id="presetsH">저장한 설정</h2><button type="button" class="btn" id="presetOpen">1~3단계 저장</button></div>
+        <div class="preset-new" id="presetNew" hidden>
+          <input type="text" id="presetName" maxlength="30" placeholder="설정 이름 (예: 김치찌개집 계정)" aria-label="설정 이름">
+          <button type="button" class="btn" id="presetSave">저장</button>
+          <button type="button" class="btn ghost" id="presetCancel">취소</button>
+        </div>
+        <div class="fchips" id="presets"></div>
+        <p class="msg" id="presetMsg" aria-live="polite"></p>
+      </section>
       <section class="step">
         <div class="step-h"><span class="n">1</span><h2>계정</h2></div>
         <div class="field">
@@ -578,6 +604,7 @@ function saveCfg(){
   for(const f of CFG_FIELDS) c[f]=$("#"+f).value;
   store.set("tw_cfg",c);
   updAvatar();
+  if(typeof renderPresets==="function"&&$("#presets")) renderPresets();
 }
 function loadCfg(){
   const c=store.get("tw_cfg",null);
@@ -598,6 +625,75 @@ function loadCfg(){
   setSeg("#tone",state.tone); setSeg("#countSeg",$("#count").value||"2");
 }
 for(const f of CFG_FIELDS) $("#"+f).addEventListener("input",saveCfg);
+
+/* ---------- 저장한 설정 (1~3단계) ---------- */
+const PRESET_FIELDS=["niche","target","topic","facts"];
+const MAX_PRESETS=20;
+var presets=store.get("tw_presets",[]);
+var presetMsgT;
+function presetMsg(t){const m=$("#presetMsg");m.textContent=t;clearTimeout(presetMsgT);presetMsgT=setTimeout(()=>m.textContent="",2500)}
+function presetNow(){
+  const d={tone:state.tone,field:state.field,goal:state.goal};
+  for(const f of PRESET_FIELDS) d[f]=$("#"+f).value;
+  return d;
+}
+function samePreset(a,b){return ["tone","field","goal",...PRESET_FIELDS].every(k=>(a[k]||"")===(b[k]||""))}
+function renderPresets(){
+  const box=$("#presets"); box.textContent="";
+  if(!presets.length){
+    const e=document.createElement("p"); e.className="empty";
+    e.textContent="계정·이번 글·원하는 반응을 저장해두면 다음에 한 번에 불러와요.";
+    box.append(e); return;
+  }
+  const now=presetNow();
+  for(const pr of presets){
+    const c=document.createElement("span"); c.className="pchip";
+    if(samePreset(pr.data,now)) c.setAttribute("aria-current","true");
+    const a=document.createElement("button"); a.type="button"; a.textContent=pr.name; a.title=pr.name+" 불러오기";
+    a.onclick=()=>applyPreset(pr);
+    const x=document.createElement("button"); x.type="button"; x.className="x"; x.textContent="×";
+    x.setAttribute("aria-label",pr.name+" 삭제");
+    x.onclick=()=>{
+      if(x.dataset.arm){presets=presets.filter(q=>q!==pr);store.set("tw_presets",presets);renderPresets();presetMsg("‘"+pr.name+"’ 설정을 지웠어요.");return}
+      x.dataset.arm="1"; x.textContent="삭제?"; setTimeout(()=>{if(x.isConnected){delete x.dataset.arm;x.textContent="×"}},3000);
+    };
+    c.append(a,x); box.append(c);
+  }
+}
+function applyPreset(pr){
+  const d=pr.data;
+  for(const f of PRESET_FIELDS) $("#"+f).value=d[f]||"";
+  state.tone=d.tone||"반말"; setSeg("#tone",state.tone);
+  state.field=FIELDS.some(f=>f.id===d.field)?d.field:"";
+  state.goal=GOALS.some(g=>g.id===d.goal)?d.goal:null;
+  if(state.goal) state.picked=new Set(GOALS.find(g=>g.id===state.goal).rec);
+  renderFields(); renderGoals(); renderStructs(); saveCfg();
+  presetMsg("‘"+pr.name+"’ 설정을 불러왔어요.");
+}
+function openPresetNew(){
+  $("#presetNew").hidden=false;
+  const n=$("#presetName");
+  n.value=n.value||($("#niche").value.trim().slice(0,20)||"");
+  n.focus(); n.select();
+}
+function savePreset(){
+  const name=$("#presetName").value.trim();
+  if(!name){$("#presetName").focus();presetMsg("설정 이름을 적어주세요.");return}
+  const old=presets.find(q=>q.name===name);
+  if(old){ old.data=presetNow(); old.at=Date.now(); }
+  else{
+    if(presets.length>=MAX_PRESETS){presetMsg("설정은 "+MAX_PRESETS+"개까지 저장돼요. 하나를 지워주세요.");return}
+    presets.unshift({name,data:presetNow(),at:Date.now()});
+  }
+  store.set("tw_presets",presets);
+  $("#presetNew").hidden=true; $("#presetName").value="";
+  renderPresets();
+  presetMsg(old?"‘"+name+"’ 설정을 새 내용으로 바꿨어요.":"‘"+name+"’ 설정을 저장했어요.");
+}
+$("#presetOpen").onclick=openPresetNew;
+$("#presetSave").onclick=savePreset;
+$("#presetCancel").onclick=()=>{$("#presetNew").hidden=true};
+$("#presetName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();savePreset()}else if(e.key==="Escape"){$("#presetNew").hidden=true}});
 
 /* ---------- 프롬프트 ---------- */
 function cfg(){
@@ -1041,7 +1137,7 @@ const EXAMPLES=[
    reply:"",
    why:"특별한 지식 없이 자기 경험 하나로 답할 수 있고, 답글이 모이면 그 자체로 추천 모음이 돼요."},
 ];
-loadCfg(); renderFields(); renderGoals(); renderStructs(); updSavedN();
+loadCfg(); renderFields(); renderGoals(); renderStructs(); updSavedN(); renderPresets();
 for(const ex of EXAMPLES) $("#feed").append(makeCard(ex));
 const lastTab=store.get("tw_tab","tabNew"); if(TABS[lastTab]&&lastTab!=="tabNew") $("#"+lastTab).click();
 </script>
