@@ -22,7 +22,7 @@
 - 회원·승인·사용 횟수: Supabase Auth + Postgres (`supabase/migrations`)
 - AI 호출: Supabase Edge Function `generate` (`supabase/functions/generate`). API 키는 Supabase secret `GEMINI_API_KEY`(우선) 또는 `ANTHROPIC_API_KEY`에만 있고 브라우저로 보내지지 않아요.
 
-## 38가지 구조 (v4.1)
+## 38가지 구조 (v4.11)
 
 | 원하는 반응 | 볼 지표 | 추천 구조 |
 |---|---|---|
