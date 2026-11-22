@@ -258,13 +258,19 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 .meter i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .3s}
 .dlg-status{font-size:13px;color:var(--muted);margin:0;min-height:1.3em}
 .dlg-status.err{color:var(--bad)}
+.voice{border:1px solid var(--line);border-radius:var(--r-m);background:var(--surface-2);padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.voice summary{cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink)}
+.voice .vstate{font-weight:500;font-size:12px;color:var(--accent);margin-left:6px}
+.voice-row{display:flex;flex-wrap:wrap;gap:6px}
+.voice .msg{font-size:12.5px;color:var(--muted);margin:0;min-height:1.2em}
+.voice .msg.err{color:var(--warn,#B4532A)}
 </style>
 </head>
 <body>
 
 <header class="appbar gutter">
   <div class="inner">
-    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.11</span></div>
+    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.2</span></div>
     <button type="button" class="acct-btn" id="acctBtn" hidden>
       <span class="av" id="acctAv">?</span><span class="t" id="acctBtnT">로그인</span><span class="q" id="acctBtnQ"></span>
     </button>
@@ -319,6 +325,35 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
             </div>
           </div>
         </div>
+        <div class="field">
+          <span class="label" id="styleLbl">말투 프리셋 <em>(시작 각도와 마무리까지 달라져요)</em></span>
+          <div class="fchips" role="group" aria-labelledby="styleLbl" id="styles"></div>
+          <p class="hint" id="styleHint"></p>
+        </div>
+        <div class="field">
+          <span class="label" id="hookLbl">훅 강도</span>
+          <div class="seg" role="group" aria-labelledby="hookLbl" id="hook">
+            <button type="button" data-v="plain" aria-pressed="false">담백</button>
+            <button type="button" data-v="normal" aria-pressed="true">보통</button>
+            <button type="button" data-v="strong" aria-pressed="false">세게</button>
+          </div>
+        </div>
+        <details class="voice" id="voiceBox">
+          <summary>내 글로 말투 학습<span class="vstate" id="voiceState"></span></summary>
+          <div class="field">
+            <label class="label" for="voiceSrc">내 스레드 글 3~5개 <em>(글 사이에 빈 줄을 넣어주세요)</em></label>
+            <textarea id="voiceSrc" rows="5" placeholder="평소 내가 쓴 스레드 글을 그대로 붙여넣어요."></textarea>
+          </div>
+          <div class="voice-row">
+            <button type="button" class="btn" id="voiceMake">말투 카드 만들기</button>
+            <button type="button" class="btn ghost" id="voiceClear">말투 카드 지우기</button>
+          </div>
+          <div class="field">
+            <label class="label" for="voice">말투 카드 <em>(직접 고쳐도 돼요 · 글 쓸 때 말투에 들어가요)</em></label>
+            <textarea id="voice" rows="6" placeholder="말투 카드를 만들면 여기에 보여요."></textarea>
+          </div>
+          <p class="msg" id="voiceMsg" aria-live="polite"></p>
+        </details>
         <div class="field">
           <span class="label" id="fieldLbl">분야 <em>(분야마다 잘 통하는 전개가 달라요)</em></span>
           <div class="fchips" role="group" aria-labelledby="fieldLbl" id="fields"></div>
@@ -586,6 +621,8 @@ const ICON={
   save:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 2.5h8v11l-4-2.6-4 2.6z"/></svg>',
   saved:'<svg viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 2.5h8v11l-4-2.6-4 2.6z"/></svg>',
   redo:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3v3.5H9.5"/><path d="M12.6 6.5A5 5 0 1 0 13 10"/></svg>',
+  up:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5M4 7.5l4-4 4 4"/></svg>',
+  down:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v9.5M4 8.5l4 4 4-4"/></svg>',
   trash:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>',
 };
 
@@ -597,6 +634,8 @@ const store = {
 
 const state = {
   tone:"반말",
+  style:"basic",
+  hook:"normal",
   goal:null,
   field:"",
   picked:new Set(["fix","easyq"]),
@@ -681,10 +720,11 @@ function bindSeg(id,onPick){
 }
 function setSeg(id,v){for(const x of $(id).children) x.setAttribute("aria-pressed", String(x.dataset.v===String(v)))}
 bindSeg("#tone",v=>{state.tone=v;saveCfg()});
+bindSeg("#hook",v=>{state.hook=v;saveCfg()});
 bindSeg("#countSeg",v=>{$("#count").value=v;updGoCount();saveCfg()});
-const CFG_FIELDS=["niche","target","topic","facts","count"];
+const CFG_FIELDS=["niche","target","topic","facts","count","voice","voiceSrc"];
 function saveCfg(){
-  const c={tone:state.tone,goal:state.goal,field:state.field,picked:[...state.picked]};
+  const c={tone:state.tone,style:state.style,hook:state.hook,goal:state.goal,field:state.field,picked:[...state.picked]};
   for(const f of CFG_FIELDS) c[f]=$("#"+f).value;
   store.set("tw_cfg",c);
   updAvatar();
@@ -700,13 +740,15 @@ function loadCfg(){
   }
   for(const f of CFG_FIELDS) if(c[f]!=null) $("#"+f).value=c[f];
   state.tone=c.tone||"반말";
+  state.style=STYLES.some(x=>x.id===c.style)?c.style:"basic";
+  state.hook=HOOK_RULE[c.hook]?c.hook:"normal";
   state.goal=GOALS.some(g=>g.id===c.goal)?c.goal:null;
   state.field=FIELDS.some(f=>f.id===c.field)?c.field:"";
   if(Array.isArray(c.picked)&&c.picked.length){
     const ids=c.picked.map(id=>LEGACY[id]||id).filter(id=>SNUM[id]);
     if(ids.length) state.picked=new Set(ids.slice(0,3));
   }
-  setSeg("#tone",state.tone); setSeg("#countSeg",$("#count").value||"2");
+  setSeg("#tone",state.tone); setSeg("#hook",state.hook); setSeg("#countSeg",$("#count").value||"2");
 }
 for(const f of CFG_FIELDS) $("#"+f).addEventListener("input",saveCfg);
 
@@ -717,11 +759,11 @@ var presets=store.get("tw_presets",[]);
 var presetMsgT;
 function presetMsg(t){const m=$("#presetMsg");m.textContent=t;clearTimeout(presetMsgT);presetMsgT=setTimeout(()=>m.textContent="",2500)}
 function presetNow(){
-  const d={tone:state.tone,field:state.field,goal:state.goal};
+  const d={tone:state.tone,style:state.style,hook:state.hook,voice:$("#voice").value,field:state.field,goal:state.goal};
   for(const f of PRESET_FIELDS) d[f]=$("#"+f).value;
   return d;
 }
-function samePreset(a,b){return ["tone","field","goal",...PRESET_FIELDS].every(k=>(a[k]||"")===(b[k]||""))}
+function samePreset(a,b){return ["tone","style","hook","voice","field","goal",...PRESET_FIELDS].every(k=>(a[k]||"")===(b[k]||""))}
 function renderPresets(){
   const box=$("#presets"); box.textContent="";
   if(!presets.length){
@@ -748,6 +790,9 @@ function applyPreset(pr){
   const d=pr.data;
   for(const f of PRESET_FIELDS) $("#"+f).value=d[f]||"";
   state.tone=d.tone||"반말"; setSeg("#tone",state.tone);
+  state.style=STYLES.some(x=>x.id===d.style)?d.style:"basic";
+  state.hook=HOOK_RULE[d.hook]?d.hook:"normal"; setSeg("#hook",state.hook);
+  $("#voice").value=d.voice||""; renderStyles(); updVoiceState();
   state.field=FIELDS.some(f=>f.id===d.field)?d.field:"";
   state.goal=GOALS.some(g=>g.id===d.goal)?d.goal:null;
   if(state.goal) state.picked=new Set(GOALS.find(g=>g.id===state.goal).rec);
@@ -779,12 +824,118 @@ $("#presetSave").onclick=savePreset;
 $("#presetCancel").onclick=()=>{$("#presetNew").hidden=true};
 $("#presetName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();savePreset()}else if(e.key==="Escape"){$("#presetNew").hidden=true}});
 
+/* ---------- 말투 프리셋 · 훅 강도 · 말투 카드 ----------
+   예시는 프리셋마다 3개 이상, 요청마다 하나만 무작위로 보낸다(예시 문장이 결과에 그대로 복사되는 것 방지).
+   프리셋마다 시작 각도를 달리 정해서 말투만 바뀌고 흐름이 같아지는 것도 막는다. */
+const STYLES=[
+  {id:"basic", name:"기본", desc:"지금까지의 작성기 말투 그대로예요."},
+  {id:"monolog", name:"담담한 독백", desc:"감정을 아끼고 짧게 끊는 독백. 장면부터 시작해요.",
+   rule:"감정은 절제하고 본 것·한 것만 담담하게. 감탄사·이모지·ㅋㅋ 없음. 짧은 문장을 마침표로 끊는다. 어미는 ~더라·~거든·~었어·~네 같은 독백형.",
+   angle:"장면부터 — 시간·장소·내가 한 행동 한 줄로 시작하고, 생각은 마지막에 한 줄만", lines:"한 줄 15~25자, 4~7줄", end:"여운을 남기는 한 줄(질문 없이 끝나도 된다)",
+   ex:["퇴근길 편의점에서 삼각김밥 두 개를 집었다가 하나를 내려놨어. 요즘은 그 정도면 충분하더라.","오늘도 메일함 비우고 나왔어. 아무도 모르는 일인데 나는 알거든.","창문 열어두고 빨래 개다가 알았네. 이번 주 처음으로 아무 생각 안 했어."]},
+  {id:"hype", name:"호들갑", desc:"놀란 결과를 첫 줄에 던지고 흥분한 채로 풀어요.",
+   rule:"놀람·흥분을 숨기지 않는다. '미친..', 'ㄷㄷ', ';;', 'ㅠㅠ', '!!'를 섞고 짧은 문장을 연달아. 그래도 상위 1%·100%·무조건·보장 같은 과장·성과 보장은 금지.",
+   angle:"결론부터 — 제일 놀란 결과를 첫 줄에 던지고, 어떻게 된 건지는 그다음", lines:"한 줄 10~20자, 짧게 끊어서", end:"'나만 몰랐어?', '이거 실화냐' 같은 확인 질문",
+   ex:["미친.. 이걸 왜 이제 알았냐 ㄷㄷ","와 잠깐만;; 이게 된다고??","ㅠㅠ 이거 하나 바꿨더니 퇴근이 30분 빨라짐"]},
+  {id:"comfort", name:"위로", desc:"독자의 하루를 먼저 알아주고 다독이며 끝내요.",
+   rule:"상대의 하루를 먼저 알아준다. 조언·해결책을 늘어놓지 않는다. 느리고 따뜻하게, '하...'로 시작해도 좋다.",
+   angle:"공감부터 — 독자가 오늘 겪었을 법한 순간 하나를 먼저 짚기", lines:"한 줄 10~20자, 줄 사이 여유 있게", end:"'오늘도 수고했어', '그걸로 충분해' 같은 다독임",
+   ex:["하... 오늘 하루도 버틴 거 맞지?","아무도 몰라줘도 너 오늘 진짜 애썼어","하루 종일 괜찮은 척했으면 지금은 좀 내려놔도 돼"]},
+  {id:"eumseum", name:"음슴체 정리", desc:"~임·~함으로 한 줄씩 띄워 정리해요.",
+   rule:"~임·~함·~음으로 끝낸다. 한 줄에 하나씩, 줄 사이를 띄운다. 감정보다 정리된 사실·팁.",
+   angle:"목록 예고부터 — '~ 정리함', '결론부터 말하면' 같은 한 줄로 시작", lines:"한 줄 10~25자, 줄마다 빈 줄", end:"'끝.' 한 단어나 저장 CTA",
+   ex:["퇴근 후 30분 루틴 정리함","이거 해보고 확실히 달라진 거 있음","결론부터 말하면 둘 다 아님"]},
+  {id:"vent", name:"친구한테 털어놓기", desc:"카톡처럼 단문을 연달아, ㅋㅋ 섞어 말 걸어요.",
+   rule:"친구 카톡처럼 단문을 연달아 보낸다. ㅋㅋ·ㅋㅋㅋ를 자연스럽게, 혼잣말·자기 디스 OK.",
+   angle:"말 걸기부터 — '야 나 오늘 ~' 식으로 바로 말을 걸며 시작", lines:"한 줄 5~18자, 짧게 여러 줄", end:"'너넨 이런 적 없음?ㅋㅋ' 같은 가벼운 질문",
+   ex:["야 나 오늘 진짜 웃긴 일 있었음 ㅋㅋ","아니 근데 이거 나만 이래?ㅋㅋㅋ","오늘 나 좀 칭찬해줘라 ㅋㅋ"]},
+];
+const HOOK_RULE={
+  plain:"훅 강도: 담백. 감탄사·과장·스레드 유행어는 거의 쓰지 않는다. 훅은 구체적인 장면이나 숫자 1~2개로. 이모지 0~1개.",
+  normal:"훅 강도: 보통. 아래 훅 요소 2개 이상.",
+  strong:"훅 강도: 세게. 첫 줄에 아래 훅 요소 3개 이상, 미쳤다·역대급·레전드 같은 스레드 말 허용. 그래도 상위 1%·100%·무조건·보장 같은 과장·성과 보장, 지어낸 수치는 금지.",
+};
+const HOOK_NEED={plain:1,normal:2,strong:3};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function styleBlock(c){
+  const st=STYLES.find(x=>x.id===c.style);
+  let t="";
+  if(st&&st.rule){
+    t+=`\n- 말투 프리셋: ${st.name} — ${st.rule}\n  시작 각도: ${st.angle} (구조의 첫 문장 뼈대보다 이 시작 각도를 먼저 따른다)\n  줄 길이: ${st.lines}\n  마무리: ${st.end}\n  느낌 예시(이 문장·단어를 그대로 쓰지 말고 느낌만): "${pick(st.ex)}"`;
+    if(c.tone==="존댓말") t+="\n  존댓말이므로 프리셋 어미는 ~요체로 바꿔서.";
+  }
+  if(c.voice) t+=`\n- 내 말투 카드(가장 우선. 프리셋과 부딪히면 이걸 따른다. 카드를 만든 원글 문장·표현을 6글자 이상 그대로 쓰지 말 것):\n${c.voice.split("\n").map(l=>"  "+l).join("\n")}`;
+  return t;
+}
+function renderStyles(){
+  const box=$("#styles"); box.textContent="";
+  for(const st of STYLES){
+    const b=document.createElement("button"); b.type="button"; b.className="fchip"; b.textContent=st.name;
+    b.setAttribute("aria-pressed",String(state.style===st.id));
+    b.onclick=()=>{state.style=st.id;renderStyles();saveCfg()};
+    box.append(b);
+  }
+  $("#styleHint").textContent=(STYLES.find(x=>x.id===state.style)||STYLES[0]).desc;
+}
+function updVoiceState(){ $("#voiceState").textContent=$("#voice").value.trim()?"· 말투 카드 사용 중":"" }
+function voiceMsg(t,err){const m=$("#voiceMsg");m.textContent=t;m.classList.toggle("err",!!err)}
+const VOICE_PROMPT=src=>`아래는 한 사람이 스레드에 직접 쓴 글들이야. 이 사람의 말투를 다른 주제의 글에서도 재현할 수 있게 '말투 카드'로 정리해.
+내용·주제·고유명사는 빼고 말투만. 원문 문장을 옮겨 적지 마(6글자 이상 연속 인용 금지). 특징은 실제로 반복되는 것만.
+
+형식(각 항목 한 줄, 다른 말·코드블록 없이):
+어미: (자주 쓰는 어미 3~5개)
+추임새·감탄: (자주 쓰는 것, 없으면 '거의 안 씀')
+이모지: (자주 쓰는 이모지와 글당 개수, 안 쓰면 '안 씀')
+줄 길이·줄 수: (한 줄 평균 몇 자, 글 하나 몇 줄 안팎, 줄 사이 빈 줄 여부)
+첫 줄 패턴: (어떻게 시작하는지)
+마무리 패턴: (어떻게 끝내는지)
+그 밖의 습관: (맞춤법·띄어쓰기·말줄임·호칭 등 한 줄)
+
+[글]
+${src}`;
+$("#voice").addEventListener("input",updVoiceState);
+$("#voiceClear").onclick=()=>{$("#voice").value="";saveCfg();updVoiceState();voiceMsg("말투 카드를 지웠어요. 프리셋 말투로 써요.")};
+$("#voiceMake").onclick=async()=>{
+  const src=$("#voiceSrc").value.trim();
+  const n=src.split(/\n\s*\n/).filter(x=>x.trim()).length;
+  if(src.replace(/\s/g,"").length<60||n<3){voiceMsg("내 글을 3개 이상, 글 사이에 빈 줄을 넣어 붙여넣어 주세요.",true);return}
+  const sample=await getSample();
+  if(!sample){voiceMsg("이 화면에서는 말투 카드를 만들 수 없어요. 로그인하거나 claude.ai에서 열어주세요.",true);return}
+  const b=$("#voiceMake"); b.disabled=true; voiceMsg("말투를 읽는 중…");
+  try{
+    const {text}=await sample(VOICE_PROMPT(src.slice(0,4000)),{cache:false});
+    const card=text.replace(/```[a-z]*\n?/g,"").trim();
+    if(!card){voiceMsg("결과를 읽지 못했어요. 다시 눌러주세요.",true);return}
+    $("#voice").value=card; saveCfg(); updVoiceState();
+    voiceMsg(`글 ${n}개로 말투 카드를 만들었어요. 이제 글 쓰기에 반영돼요.`);
+  }catch(err){ voiceMsg(errText(err),true) }
+  finally{ b.disabled=false }
+};
+
+/* ---------- 예시 문장 복사 점검 (6글자 이상 연속 겹침) ---------- */
+const normTxt=t=>(t||"").replace(/[\s.,!?…~'"‘’“”·\-—:;()/]/g,"");
+function grams(t,n){const g=new Set();for(let i=0;i+n<=t.length;i++){const x=t.slice(i,i+n);if(!/[\[\]]/.test(x)&&!/^[ㅋㅎㅠㅜ\d]+$/.test(x))g.add(x)}return g}
+const CTA_OK=["지금 리포스트하고 두고두고 봐","지금 리포스트하고 두고두고 보세요","필요할 때 다시 쓰게 저장해둬","하나씩 풀어보자. 일단 나는","저장해두고 그대로 따라 해봐","너네는 몇 번 고름"];
+let EX_GRAMS=null;
+function exGrams(){
+  if(EX_GRAMS) return EX_GRAMS;
+  const ok=new Set(); for(const c of CTA_OK) for(const g of grams(normTxt(c),6)) ok.add(g);
+  const src=[...STYLES.flatMap(x=>x.ex||[]),...STRUCTS.map(x=>x.example),
+    "스레드 3년 하면서 느낀 거 팔로워는 글 잘 쓰는 사람보다 남의 글에 댓글 잘 다는 사람이 먼저 늘더라",
+    "사장님들 리뷰 답글 아직도 감사합니다 한 줄로 끝내","프로필 첫 줄에 뭐 하는 사람인지부터 박아","주제는 하나만 맛집 올렸다 육아 올렸다 하면 아무도 안 따라옴",
+    "견적서 쓰는 데 1시간 걸리던 거 ChatGPT한테 시키니까"];
+  EX_GRAMS=new Set(); for(const t of src) for(const g of grams(normTxt(t),6)) if(!ok.has(g)) EX_GRAMS.add(g);
+  return EX_GRAMS;
+}
+function copyHit(text, set, n){ const t=normTxt(text); for(let i=0;i+n<=t.length;i++){const x=t.slice(i,i+n); if(set.has(x)) return x} return "" }
+
 /* ---------- 프롬프트 ---------- */
 function cfg(){
   return {
     niche:$("#niche").value.trim(), target:$("#target").value.trim(),
     topic:$("#topic").value.trim(), facts:$("#facts").value.trim(),
-    tone:state.tone, count:Number($("#count").value)||2,
+    tone:state.tone, style:state.style, hook:state.hook, voice:$("#voice").value.trim(),
+    count:Number($("#count").value)||2,
     goal: state.goal ? GOALS.find(g=>g.id===state.goal) : null,
     field: FIELDS.find(f=>f.id===state.field&&f.guide)||null,
   };
@@ -802,7 +953,7 @@ function buildPrompt(c, ids, count, extra){
 [말투 — 가장 중요]
 - 설명하지 말고 말해. 정의·개요·배경 설명, '~하는 방법은 다음과 같습니다' 같은 블로그·보고서·강의 문장 금지.
 - 쓰지 않는 표현: 중요합니다·필요합니다·~할 수 있습니다·~해야 합니다·다양한·효과적인·첫째/둘째·결론적으로·요약하면·다음과 같다·알아보겠다·~에 대해·~라는 점·~하는 것이 좋다.
-- '~다.'로 끝나는 문어체(~했다, ~이다, ~좋다, ~된다) 금지. 반말이면 ~했어·~더라·~거든·~임·~함·~하자·~해봐. 존댓말이면 ~했어요·~더라고요·~거든요·~해보세요를 짧게 끊어서(~습니다체 금지).
+- ${c.style==="monolog"?"(담담한 독백 프리셋) 마침표로 끊는 짧은 독백은 허용 — ~더라·~거든·~었어·~네 위주로, '~다'로 끝나는 줄은 두 줄까지. 설명문·보고서 문장은 여전히 금지.":"'~다.'로 끝나는 문어체(~했다, ~이다, ~좋다, ~된다) 금지."} 반말이면 ~했어·~더라·~거든·~임·~함·~하자·~해봐. 존댓말이면 ~했어요·~더라고요·~거든요·~해보세요를 짧게 끊어서(~습니다체 금지).
 - 한 줄 = 한 호흡. 그리고·따라서·또한 같은 접속사 대신 줄바꿈. 말줄임(..), 혼잣말, 조사 생략, 감탄 OK.
 - 일반론 대신 내 장면: 언제·어디서·뭘 했더니·어떻게 됐는지. 장면이나 숫자가 없으면 [대괄호]로 비워 둔다(지어내지 않는다).
 - 답글 목록도 같은 말투. 항목은 명사형 요약이 아니라 친구한테 알려주듯 한 줄.
@@ -821,7 +972,7 @@ function buildPrompt(c, ids, count, extra){
 ✓ 와.. 견적서 쓰는 데 1시간 걸리던 거 ChatGPT한테 시키니까 [n분] 컷
 
 [훅·구성]
-- 첫 글(main)은 1~3줄, 첫 줄 25자 안팎. 훅 요소 2개 이상: 감탄·말줄임('와..', '하..', '이거..'), 정체성('나 [직업].' — 계정 정보에 있는 것만), 숫자(사실만), 망설임·비밀('공유 안 하려고 했는데'), 금지·경고('~하지 마', '~조심해라..'), 나만 몰랐음, 예상 반전('처음엔 ~인 줄 알았는데'), 소신발언, 호명('사장님들', '스친이들아', '얘두라').
+- 첫 글(main)은 1~3줄, 첫 줄 25자 안팎. ${HOOK_RULE[c.hook]||HOOK_RULE.normal} 훅 요소: 감탄·말줄임('와..', '하..', '이거..'), 정체성('나 [직업].' — 계정 정보에 있는 것만), 숫자(사실만), 망설임·비밀('공유 안 하려고 했는데'), 금지·경고('~하지 마', '~조심해라..'), 나만 몰랐음, 예상 반전('처음엔 ~인 줄 알았는데'), 소신발언, 호명('사장님들', '스친이들아', '얘두라').
 - 정보형은 첫 글에서 궁금증만 남기고 끊는다(끝에 👇). 답글(2/2)에서 약속한 걸 전부 준다: 3~7개, 항목마다 바로 따라 할 행동(앱 이름·시간·금액·복붙 문장). 마지막에 내 소감 한 줄.
 - 댓글형은 1~4줄. 판단을 독자에게 넘기는 질문 하나로 끝(3초 안에 답할 수 있게).
 - 썰·관찰형은 '오늘 ~하다가', '예전에 ~했을 때' + 대사·숫자가 있는 장면 + 반전. 웃음은 설명하지 않고 마지막 한 줄에서 방향만 바꾼다.
@@ -835,7 +986,7 @@ function buildPrompt(c, ids, count, extra){
 [계정]
 - 분야·소개: ${c.niche||"(미입력)"}
 - 타깃 독자: ${c.target||"(미입력)"}
-- 말투: ${c.tone}${c.tone==="반말"?" (친구한테 말하듯, ~함/~임/~거든 체도 섞어서)":" (친근한 ~요체, ~습니다체·~다 문어체 금지)"}
+- 말투: ${c.tone}${c.tone==="반말"?" (친구한테 말하듯, ~함/~임/~거든 체도 섞어서)":" (친근한 ~요체, ~습니다체·~다 문어체 금지)"}${styleBlock(c)}
 
 [이번 글 주제]
 ${c.topic}
@@ -870,7 +1021,7 @@ ${structs.map(s=>`■ id: ${s.id} / ${s.name} (${KIND_LABEL[s.kind]})
 function initial(){const s=($("#niche").value||"").trim();return s?s[0]:"나"}
 function updAvatar(){const i=initial();document.querySelectorAll(".avatar").forEach(a=>a.textContent=i)}
 function autosize(t){t.style.height="auto";t.style.height=t.scrollHeight+"px"}
-function checks(main, reply, kind, sid){
+function checks(main, reply, kind, sid, p){
   const lines=main.split("\n").filter(l=>l.trim());
   const first=(lines[0]||"").trim();
   const all=main+"\n"+reply;
@@ -891,15 +1042,21 @@ function checks(main, reply, kind, sid){
   }
   out.push({t:"500자 이내", s:(main.length<=500&&reply.length<=500)?"ok":"warn", alt:"500자 넘음"});
   const head=lines.slice(0,3).join(" ");
-  const hooks=[/^(와|아|이거|헐)\s*(\.\.|…)/.test(first)||/(\.\.|…)/.test(first), /\d/.test(head),
+  const hooks=[/^(와|아|이거|헐)\s*(\.\.|…)/.test(first)||/(\.\.|…)/.test(first)||/(미쳤|미친|ㄷㄷ|;;|대박|실화|역대급|레전드)/.test(head), /\d/.test(head),
     /(년\s*차|경력|현직|대표|강사|사장|디자이너|마케터|상담사|개발자)/.test(head), /(공유 안|공개해도|슬쩍|비밀)/.test(head),
     /(하지\s*마|그만|금지|❌|망하는)/.test(head), /(분들|스친|사장님|있어\?|있나요\?|님들)/.test(head), /(인\s?줄 알았|줄 알았는데|처음엔)/.test(head), /(나만\s?(몰랐|그래|그런)|알고 있었어|실수로 알게|소신\s?발언|논란의 여지|얘두라|스친이들아|손들어|풀어보자|대회)/.test(head)].filter(Boolean).length;
-  out.push({t:`훅 요소 ${hooks}개`, s:hooks>=2?"ok":"warn", alt:`훅 요소 ${hooks}개 · 2개 이상 섞기`});
+  // 담담한 독백·위로는 감탄·자극을 아끼는 말투라 한 단계 낮춰서 본다
+  const need=Math.max(1,(HOOK_NEED[p?.hook]||2)-(["monolog","comfort"].includes(p?.style)?1:0));
+  out.push({t:`훅 요소 ${hooks}개`, s:hooks>=need?"ok":"warn", alt:`훅 요소 ${hooks}개 · ${need}개 이상 섞기`});
   if(/^안녕하세요/.test(first)) out.push({t:"형식적 인사로 시작하지 않기", s:"warn"});
+  const ex=copyHit(all,exGrams(),6);
+  if(ex) out.push({t:`예시 문장과 겹침 · ‘${ex}’`, s:"warn"});
+  const vs=$("#voiceSrc")?.value||"";
+  if(vs.trim()){ const v=copyHit(all,grams(normTxt(vs),10),10); if(v) out.push({t:`내 원글과 겹침 · ‘${v}’`, s:"warn"}); }
   const lecture=(all.match(/(중요합니다|필요합니다|할 수 있습니다|해야 합니다|다음과 같|알아보|첫째|둘째|결론적으로|요약하면|다양한|효과적|것이 중요|라는 점|하는 것이 좋)/g)||[]).length;
   if(lecture) out.push({t:`설명문 말투 ${lecture}곳 · 말하듯 바꾸기`, s:"warn"});
   const formal=all.split("\n").filter(l=>/(했다|이다|한다|있다|없다|좋다|된다|였다)[.!]?\s*$/.test(l.trim())).length;
-  if(formal>=2) out.push({t:`'~다' 문어체 ${formal}줄`, s:"warn"});
+  if(formal>=(p?.style==="monolog"?3:2)) out.push({t:`'~다' 문어체 ${formal}줄`, s:"warn"});
   if(/(^|\s)#[^\s#]+/.test(all)) out.push({t:"해시태그 빼기", s:"warn"});
   const emo=(all.match(/\p{Extended_Pictographic}/gu)||[]).length;
   if(emo>5) out.push({t:`이모지 ${emo}개 · 5개 이내로`, s:"warn"});
@@ -953,7 +1110,7 @@ function makeCard(p, opts={}){
   const th=document.createElement("div"); th.className="thread";
   const hasReply = (p.reply||"").trim().length>0;
   const ck=document.createElement("div"); ck.className="checks";
-  const drawChecks=()=>{ck.textContent="";for(const c of checks(p.main,p.reply||"",s.kind,s.id)){const e=document.createElement("span");e.className="ck "+(c.s==="ok"?"ok":c.s==="warn"?"warn":"");e.textContent=c.s==="none"?(c.alt||c.t):(c.s==="warn"&&c.alt?c.alt:c.t);ck.append(e)}};
+  const drawChecks=()=>{ck.textContent="";for(const c of checks(p.main,p.reply||"",s.kind,s.id,p)){const e=document.createElement("span");e.className="ck "+(c.s==="ok"?"ok":c.s==="warn"?"warn":"");e.textContent=c.s==="none"?(c.alt||c.t):(c.s==="warn"&&c.alt?c.alt:c.t);ck.append(e)}};
   const commit=()=>{drawChecks(); if(opts.onEdit) opts.onEdit(p)};
 
   const r1=document.createElement("div"); r1.className="rail";
@@ -978,7 +1135,11 @@ function makeCard(p, opts={}){
   if(opts.savedView){
     foot.append(iconBtn("trash","삭제",()=>{state.saved=state.saved.filter(x=>x.key!==p.key);store.set("tw_saved",state.saved);renderSaved()}));
   }else{
-    if(!p.example) foot.append(iconBtn("redo","다시 쓰기",b=>regenOne(p,card,b)));
+    if(!p.example){
+      foot.append(iconBtn("redo","다시 쓰기",b=>regenOne(p,card,b)));
+      foot.append(iconBtn("up","더 세게",b=>regenOne(p,card,b,"strong")));
+      foot.append(iconBtn("down","더 담백하게",b=>regenOne(p,card,b,"plain")));
+    }
     const sv=iconBtn(isSaved(p)?"saved":"save",isSaved(p)?"보관됨":"보관",b=>{
       if(isSaved(p)) return;
       state.saved.unshift({...p,key:p.key||Date.now()+"_"+Math.random().toString(36).slice(2,7),example:false});
@@ -1219,7 +1380,7 @@ $("#form").addEventListener("submit",async e=>{
   for(const ex of feed.querySelectorAll(".post-card")) if(ex.querySelector(".example")) ex.remove();
   const anchor=document.createElement("div"); feed.prepend(anchor);
   let pending="", n=0; const total=ids.length*c.count;
-  const add=o=>{ if(!o) return; n++; anchor.before(makeCard(o,{fresh:true})); status(`${n} / ${total}개 쓰는 중`,false,true) };
+  const add=o=>{ if(!o) return; n++; o.style=c.style; o.hook=c.hook; anchor.before(makeCard(o,{fresh:true})); status(`${n} / ${total}개 쓰는 중`,false,true) };
   ctl=new AbortController(); setBusy(true); status("구조를 읽고 있어요 · 보통 20~60초",false,true); toResults();
   try{
     await sample(prompt,{signal:ctl.signal,cache:false,onText:({delta})=>{
@@ -1236,18 +1397,23 @@ $("#form").addEventListener("submit",async e=>{
 });
 $("#stop").onclick=()=>ctl?.abort();
 
-async function regenOne(p, card, btn){
+async function regenOne(p, card, btn, mode){
   const sample=await getSample(); if(!sample){status("이 화면에서는 다시 쓰기를 할 수 없어요.",true);return}
   const c=cfg(); if(!c.topic) c.topic=p.topic||"";
-  const prompt=buildPrompt(c,[p.structure],1,`앞서 쓴 아래 글과 훅·각도가 완전히 다르게 써.\n---\n${p.main}\n---`);
-  const lab=btn.querySelector("span");
+  if(p.style) c.style=p.style;
+  if(mode) c.hook=mode; else if(p.hook) c.hook=p.hook;
+  const extra = mode
+    ? `앞서 쓴 아래 글을 같은 구조·같은 내용으로, 훅만 ${mode==="strong"?"더 세게(첫 줄 훅 요소 3개 이상)":"더 담백하게(감탄·과장·유행어 빼고 장면 위주)"} 다시 써. 문장을 그대로 반복하지 마.\n---\n${p.main}\n---`
+    : `앞서 쓴 아래 글과 훅·각도가 완전히 다르게 써.\n---\n${p.main}\n---`;
+  const prompt=buildPrompt(c,[p.structure],1,extra);
+  const lab=btn.querySelector("span"); const old=lab.textContent;
   btn.disabled=true; lab.textContent="다시 쓰는 중…";
   try{
     const {text}=await sample(prompt,{cache:false});
     const o=text.split("\n").map(parseLine).find(Boolean);
-    if(o){ card.replaceWith(makeCard(o,{fresh:true})); status("다시 썼어요."); }
-    else { status("결과를 읽지 못했어요. 다시 눌러주세요.",true); btn.disabled=false; lab.textContent="다시 쓰기"; }
-  }catch(err){ status(errText(err),true); btn.disabled=false; lab.textContent="다시 쓰기"; }
+    if(o){ o.style=c.style; o.hook=c.hook; card.replaceWith(makeCard(o,{fresh:true})); status("다시 썼어요."); }
+    else { status("결과를 읽지 못했어요. 다시 눌러주세요.",true); btn.disabled=false; lab.textContent=old; }
+  }catch(err){ status(errText(err),true); btn.disabled=false; lab.textContent=old; }
 }
 
 /* ---------- 시작 ---------- */
@@ -1261,7 +1427,7 @@ const EXAMPLES=[
    reply:"",
    why:"특별한 지식 없이 자기 경험 하나로 답할 수 있고, 답글이 모이면 그 자체로 추천 모음이 돼요."},
 ];
-loadCfg(); renderFields(); renderGoals(); renderStructs(); updSavedN(); renderPresets();
+loadCfg(); renderStyles(); updVoiceState(); renderFields(); renderGoals(); renderStructs(); updSavedN(); renderPresets();
 for(const ex of EXAMPLES) $("#feed").append(makeCard(ex));
 const lastTab=store.get("tw_tab","tabNew"); if(TABS[lastTab]&&lastTab!=="tabNew") $("#"+lastTab).click();
 </script>
