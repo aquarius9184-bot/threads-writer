@@ -264,13 +264,19 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 .voice-row{display:flex;flex-wrap:wrap;gap:6px}
 .voice .msg{font-size:12.5px;color:var(--muted);margin:0;min-height:1.2em}
 .voice .msg.err{color:var(--warn,#B4532A)}
+.step[hidden]{display:none}
+.st.off{opacity:.45;cursor:not-allowed}
+.st.off:hover{box-shadow:none;border-color:var(--line)}
+.st .need{font-size:11px;color:var(--muted)}
+.aff-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.aff-tools .hint{flex:1;min-width:12em}
 </style>
 </head>
 <body>
 
 <header class="appbar gutter">
   <div class="inner">
-    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.2</span></div>
+    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.3</span></div>
     <button type="button" class="acct-btn" id="acctBtn" hidden>
       <span class="av" id="acctAv">?</span><span class="t" id="acctBtnT">로그인</span><span class="q" id="acctBtnQ"></span>
     </button>
@@ -305,6 +311,15 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
         </div>
         <div class="fchips" id="presets"></div>
         <p class="msg" id="presetMsg" aria-live="polite"></p>
+      </section>
+      <section class="step modebar">
+        <div class="aff-tools">
+          <span class="label" id="modeLbl">글 종류</span>
+          <div class="seg" role="group" aria-labelledby="modeLbl" id="mode">
+            <button type="button" data-v="normal" aria-pressed="true">일반 글</button>
+            <button type="button" data-v="aff" aria-pressed="false">제휴 글</button>
+          </div>
+        </div>
       </section>
       <section class="step">
         <div class="step-h"><span class="n">1</span><h2>계정</h2></div>
@@ -360,7 +375,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
         </div>
       </section>
 
-      <section class="step">
+      <section class="step m-normal">
         <div class="step-h"><span class="n">2</span><h2>이번 글</h2></div>
         <div class="field">
           <label class="label" for="topic">주제</label>
@@ -373,12 +388,12 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
         </div>
       </section>
 
-      <section class="step">
+      <section class="step m-normal">
         <div class="step-h"><span class="n">3</span><h2>원하는 반응</h2><span class="aside">고르면 구조를 추천해요</span></div>
         <div class="goals" id="goals"></div>
       </section>
 
-      <section class="step">
+      <section class="step m-normal">
         <div class="step-h"><span class="n">4</span><h2>구조</h2><span class="aside" id="pickedN"></span></div>
         <div class="structs" id="structs"></div>
         <button type="button" class="more mobile-only" id="moreStructs">구조 38개 모두 보기</button>
@@ -390,6 +405,55 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
             <button type="button" data-v="3" aria-pressed="false">3개</button>
           </div>
           <input type="hidden" id="count" value="2">
+        </div>
+      </section>
+
+      <section class="step m-aff" hidden>
+        <div class="step-h"><span class="n">2</span><h2>제휴 상품</h2><span class="aside">표시 문구·링크는 답글 끝에 자동으로 붙어요</span></div>
+        <div class="field">
+          <span class="label" id="platLbl">제휴 플랫폼</span>
+          <div class="fchips" role="group" aria-labelledby="platLbl" id="affPlat"></div>
+        </div>
+        <div class="field" id="affEtcBox" hidden>
+          <label class="label" for="affEtc">플랫폼 이름</label>
+          <input type="text" id="affEtc" placeholder="예) 11번가 제휴">
+        </div>
+        <div class="field">
+          <label class="label" for="affName">링크 상품명 <em>(링크 상품과 정확히 같게)</em></label>
+          <input type="text" id="affName" placeholder="예) 락앤락 스텐 텀블러 450ml">
+        </div>
+        <div class="field">
+          <label class="label" for="affLink">제휴 링크</label>
+          <input type="text" id="affLink" inputmode="url" placeholder="https://link.coupang.com/...">
+        </div>
+        <div class="field">
+          <label class="label" for="affFacts">내가 아는 사실 <em>(경험·가격·특징 · 비워도 돼요)</em></label>
+          <textarea id="affFacts" rows="2" placeholder="예) 3개월째 출근길에 씀. 오후까지 얼음이 남아 있음"></textarea>
+          <p class="hint">비워두면 써본 척하는 유형(감사·권위·가족 장면·감탄 후기)은 고를 수 없어요.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="affMedia">첨부 사진·영상 설명 <em>(선택)</em></label>
+          <textarea id="affMedia" rows="2" placeholder="예) 얼음 가득 담긴 텀블러를 책상 위에 둔 사진"></textarea>
+        </div>
+        <div class="field">
+          <label class="label" for="affDisc">광고 표시 문구 <em>(플랫폼에 맞춰 채워져요 · 고쳐도 돼요)</em></label>
+          <input type="text" id="affDisc">
+        </div>
+      </section>
+      <section class="step m-aff" hidden>
+        <div class="step-h"><span class="n">3</span><h2>유형</h2><span class="aside" id="affPickedN"></span></div>
+        <div class="aff-tools">
+          <button type="button" class="btn" id="affAuto">자동 추천</button>
+          <p class="hint">제휴 글은 최근 글 3개 중 1개 이하로 섞어 올리는 게 좋아요.</p>
+        </div>
+        <div class="structs" id="affTypes"></div>
+        <div class="row2" style="grid-template-columns:auto 1fr;align-items:center">
+          <span class="label" id="affCountLbl">유형당 글 수</span>
+          <div class="seg" role="group" aria-labelledby="affCountLbl" id="affCountSeg">
+            <button type="button" data-v="1" aria-pressed="true">1개</button>
+            <button type="button" data-v="2" aria-pressed="false">2개</button>
+          </div>
+          <input type="hidden" id="affCount" value="1">
         </div>
       </section>
 
@@ -636,6 +700,9 @@ const state = {
   tone:"반말",
   style:"basic",
   hook:"normal",
+  mode:"normal",
+  plat:"coupang",
+  affPicked:new Set(["aff1","aff3"]),
   goal:null,
   field:"",
   picked:new Set(["fix","easyq"]),
@@ -674,7 +741,7 @@ function renderFields(){
   }
 }
 function updGoCount(){
-  const n=state.picked.size*(Number($("#count").value)||2);
+  const n=state.mode==="aff" ? state.affPicked.size*(Number($("#affCount").value)||1) : state.picked.size*(Number($("#count").value)||2);
   $("#goCnt").textContent = n ? n+"개" : "";
   $("#pickedN").textContent = state.picked.size ? `${state.picked.size} / ${MAX_PICK}개 선택` : `최대 ${MAX_PICK}개까지 골라주세요`;
 }
@@ -722,9 +789,9 @@ function setSeg(id,v){for(const x of $(id).children) x.setAttribute("aria-presse
 bindSeg("#tone",v=>{state.tone=v;saveCfg()});
 bindSeg("#hook",v=>{state.hook=v;saveCfg()});
 bindSeg("#countSeg",v=>{$("#count").value=v;updGoCount();saveCfg()});
-const CFG_FIELDS=["niche","target","topic","facts","count","voice","voiceSrc"];
+const CFG_FIELDS=["niche","target","topic","facts","count","voice","voiceSrc","affName","affLink","affFacts","affMedia","affDisc","affEtc","affCount"];
 function saveCfg(){
-  const c={tone:state.tone,style:state.style,hook:state.hook,goal:state.goal,field:state.field,picked:[...state.picked]};
+  const c={tone:state.tone,style:state.style,hook:state.hook,mode:state.mode,plat:state.plat,affPicked:[...state.affPicked],goal:state.goal,field:state.field,picked:[...state.picked]};
   for(const f of CFG_FIELDS) c[f]=$("#"+f).value;
   store.set("tw_cfg",c);
   updAvatar();
@@ -742,28 +809,31 @@ function loadCfg(){
   state.tone=c.tone||"반말";
   state.style=STYLES.some(x=>x.id===c.style)?c.style:"basic";
   state.hook=HOOK_RULE[c.hook]?c.hook:"normal";
+  state.mode=c.mode==="aff"?"aff":"normal";
+  state.plat=AFF_PLAT.some(x=>x.id===c.plat)?c.plat:"coupang";
+  if(Array.isArray(c.affPicked)) state.affPicked=new Set(c.affPicked.filter(id=>AFF_TYPES.some(t=>t.id===id)).slice(0,3));
   state.goal=GOALS.some(g=>g.id===c.goal)?c.goal:null;
   state.field=FIELDS.some(f=>f.id===c.field)?c.field:"";
   if(Array.isArray(c.picked)&&c.picked.length){
     const ids=c.picked.map(id=>LEGACY[id]||id).filter(id=>SNUM[id]);
     if(ids.length) state.picked=new Set(ids.slice(0,3));
   }
-  setSeg("#tone",state.tone); setSeg("#hook",state.hook); setSeg("#countSeg",$("#count").value||"2");
+  setSeg("#tone",state.tone); setSeg("#hook",state.hook); setSeg("#countSeg",$("#count").value||"2"); setSeg("#affCountSeg",$("#affCount").value||"1");
 }
 for(const f of CFG_FIELDS) $("#"+f).addEventListener("input",saveCfg);
 
 /* ---------- 저장한 설정 (1~3단계) ---------- */
-const PRESET_FIELDS=["niche","target","topic","facts"];
+const PRESET_FIELDS=["niche","target","topic","facts","affName","affLink","affFacts","affMedia","affDisc","affEtc"];
 const MAX_PRESETS=20;
 var presets=store.get("tw_presets",[]);
 var presetMsgT;
 function presetMsg(t){const m=$("#presetMsg");m.textContent=t;clearTimeout(presetMsgT);presetMsgT=setTimeout(()=>m.textContent="",2500)}
 function presetNow(){
-  const d={tone:state.tone,style:state.style,hook:state.hook,voice:$("#voice").value,field:state.field,goal:state.goal};
+  const d={tone:state.tone,style:state.style,hook:state.hook,voice:$("#voice").value,mode:state.mode,plat:state.plat,field:state.field,goal:state.goal};
   for(const f of PRESET_FIELDS) d[f]=$("#"+f).value;
   return d;
 }
-function samePreset(a,b){return ["tone","style","hook","voice","field","goal",...PRESET_FIELDS].every(k=>(a[k]||"")===(b[k]||""))}
+function samePreset(a,b){return ["tone","style","hook","voice","mode","plat","field","goal",...PRESET_FIELDS].every(k=>(a[k]||"")===(b[k]||""))}
 function renderPresets(){
   const box=$("#presets"); box.textContent="";
   if(!presets.length){
@@ -793,6 +863,7 @@ function applyPreset(pr){
   state.style=STYLES.some(x=>x.id===d.style)?d.style:"basic";
   state.hook=HOOK_RULE[d.hook]?d.hook:"normal"; setSeg("#hook",state.hook);
   $("#voice").value=d.voice||""; renderStyles(); updVoiceState();
+  state.plat=AFF_PLAT.some(x=>x.id===d.plat)?d.plat:"coupang"; renderAffPlat(false); renderAffTypes(); setMode(d.mode==="aff"?"aff":"normal");
   state.field=FIELDS.some(f=>f.id===d.field)?d.field:"";
   state.goal=GOALS.some(g=>g.id===d.goal)?d.goal:null;
   if(state.goal) state.picked=new Set(GOALS.find(g=>g.id===state.goal).rec);
@@ -912,6 +983,176 @@ $("#voiceMake").onclick=async()=>{
   finally{ b.disabled=false }
 };
 
+/* ---------- 제휴 글 (제휴 글 322개 분석 · 메타프롬프트 v1) ---------- */
+const AFF_PLAT=[
+  {id:"coupang", name:"쿠팡파트너스", label:"쿠팡 파트너스"},
+  {id:"toss", name:"토스쇼핑", label:"토스쇼핑"},
+  {id:"naver", name:"네이버 쇼핑커넥트", label:"네이버 쇼핑커넥트"},
+  {id:"etc", name:"기타", label:""},
+];
+const affDiscFor=(plat,etc)=>`이 포스팅은 ${plat==="etc"?(etc||"[플랫폼]"):(AFF_PLAT.find(x=>x.id===plat)||AFF_PLAT[0]).label} 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.`;
+const AFF_TYPES=[
+  {id:"aff1", n:1, name:"추천 구하기", short:"내 상황 + '하나씩만 추천해줘'", formula:"내 상황 한 줄 + 카테고리를 열어두고 '하나씩만 추천해줘' + 간절함. 답글 첫 줄에서 내가 결국 고른 이유 한 줄로 연결.", example:"'쿠팡에서 산 것 중 이건 꼭 먹어봐라 하는 거 하나씩만 추천해줘… 제발….' — 133.9만 조회"},
+  {id:"aff2", n:2, name:"가격 딜레마", short:"'이거 [가격] 주고 사는 거 맞아?'", formula:"'이거 [가격] 주고 사는 거 맞아?' + 가족·지인 의견 충돌(대화체, 실제 있었던 대화만, 없으면 내 속마음 두 갈래로) + 같은 처지 사람에게 질문. 가격은 확인한 것만, 없으면 [가격].", example:"'젖병 세척기 40만원 주고 사는 거 맞아? 와이프: 새벽에 젖병 씻는 거 누가 할 건데 나: ......내가' — 18만 조회"},
+  {id:"aff3", n:3, name:"정체 묻기", short:"'이거 뭔지 아는 사람?' / 'A게 B게?'", formula:"'이거 뭔지 아는 사람?' 또는 'A게 B게?' + 첫인상 한 줄과 반전 한 줄. 정답(제품)은 답글에서.", example:"'이게 블러셔게 하이라이터게?' — 16만 조회"},
+  {id:"aff4", n:4, name:"추천해준 사람에게 감사", short:"'이거 추천해준 [누구] 복 받아'", need:true, formula:"'이거 추천해준 [스친/언니/누구] 복 받아' + 결과 한 줄. 실제로 추천받은 경우만.", example:"'이 구두 추천해준 승무원 스친이!! 당장 나와!! 10시간 행사 뛰고 왔는데도 개편해' — 18만 조회"},
+  {id:"aff5", n:5, name:"권위·유명인", short:"'[출처 있는 인물/직업]이 [한 것]'", need:true, formula:"'[출처 있는 인물·직업]이 [한 것]' + 내가 따라 해본 결과. [내가 아는 사실]에 출처가 있을 때만, 출처에 있는 내용만.", example:"'성시경님이 10kg 뺄 때 먹은 식단 따라 하려고…' — 19만 조회"},
+  {id:"aff6", n:6, name:"생활 팁·경고", short:"'절대 [흔한 방법] 하지 마'", formula:"'절대 [흔한 방법] 하지 마' 또는 '이거 알고 나니까 [일]이 제일 쉬워'. 답글 첫 줄에 실제 방법(순서·양·시간)을 먼저 주고 도구로 연결.", example:"'생선 구울 때 절대 기름부터 두르지 마' — 16만 조회"},
+  {id:"aff7", n:7, name:"가족·지인 장면", short:"'우리 [가족]이 [이걸] 해/사 옴'", need:true, formula:"'우리 [가족·지인]이 [이걸] 해/사 옴' + 반응 한 줄. 실제 일화만.", example:"'우리 언니가 어린이집 교사인데 할로윈 때마다 이거 만든대' — 21만 조회"},
+  {id:"aff8", n:8, name:"바이럴 장면", short:"사진·영상 장면에 감탄·질문만", formula:"사진·영상 속 장면에 대한 감탄이나 질문만 쓰고 제품은 꺼내지 않는다. 답글 첫 줄에서 장면과 이어지는 내 이유로 제품을 연결. 첨부가 있을 때 쓴다.", example:"호신 영상 '이 언니 너무 멋지네' → 답글 '나는 이 언니처럼 할 자신이 없어서 이거 구입함' — 32만 조회"},
+  {id:"aff9", n:9, name:"감탄 후기", short:"첫 반응 + 감각 하나 + 반전·자책", need:true, formula:"첫 반응 한 줄('미친 이거 뭐야') + 감각 하나 + 반전·자책 한 줄. 실제로 써본 경우만.", example:"'한 캔만 사 왔는데 왜 한 캔만 사 왔냐 나란 인간…' — 10만 조회"},
+  {id:"aff10", n:10, name:"큐레이션·딜", short:"대상 + 개수 약속 + '저장해둬'", formula:"대상 + 개수 약속 + '저장해둬', 또는 실제 확인한 가격 변화. 개수·가격은 확인한 것만.", example:"'반찬 해 먹기 귀찮은 사람들 필독… 꼭 저장하셈' — 15만 조회"},
+];
+const affHasFacts=()=>!!$("#affFacts").value.trim();
+function affRec(){
+  const f=affHasFacts(), m=!!$("#affMedia").value.trim();
+  return f ? (m?["aff9","aff8","aff6"]:["aff9","aff6","aff2"]) : (m?["aff8","aff3","aff1"]:["aff1","aff3","aff2"]);
+}
+function renderAffPlat(resetDisc){
+  const box=$("#affPlat"); box.textContent="";
+  for(const pl of AFF_PLAT){
+    const b=document.createElement("button"); b.type="button"; b.className="fchip"; b.textContent=pl.name;
+    b.setAttribute("aria-pressed",String(state.plat===pl.id));
+    b.onclick=()=>{state.plat=pl.id;renderAffPlat(true);saveCfg()};
+    box.append(b);
+  }
+  $("#affEtcBox").hidden=state.plat!=="etc";
+  if(resetDisc||!$("#affDisc").value.trim()) $("#affDisc").value=affDiscFor(state.plat,$("#affEtc").value.trim());
+}
+function renderAffTypes(){
+  const box=$("#affTypes"); box.textContent="";
+  const f=affHasFacts(), rec=affRec();
+  for(const t of AFF_TYPES) if(t.need&&!f) state.affPicked.delete(t.id);
+  for(const t of AFF_TYPES){
+    const off=t.need&&!f;
+    const b=document.createElement("button"); b.type="button"; b.className="st"+(rec.includes(t.id)?" isrec":"")+(off?" off":"");
+    b.setAttribute("aria-pressed",String(state.affPicked.has(t.id)));
+    if(off) b.setAttribute("aria-disabled","true");
+    const top=document.createElement("span"); top.className="top";
+    const no=document.createElement("span"); no.className="no"; no.textContent=String(t.n).padStart(2,"0"); top.append(no);
+    if(rec.includes(t.id)&&!off){const r=document.createElement("span");r.className="rec";r.textContent="추천";top.append(r)}
+    const nm=document.createElement("b"); nm.textContent=t.name;
+    const d=document.createElement("small"); d.textContent=t.short;
+    b.append(top,nm,d);
+    if(off){const nd=document.createElement("span");nd.className="need";nd.textContent="내가 아는 사실을 적으면 고를 수 있어요";b.append(nd)}
+    const tick=document.createElement("span"); tick.className="tick"; tick.innerHTML=ICON.check; b.append(tick);
+    b.onclick=()=>{
+      if(off){status("이 유형은 실제 경험·출처가 있어야 해요. ‘내가 아는 사실’을 먼저 적어주세요.",true);return}
+      if(state.affPicked.has(t.id)) state.affPicked.delete(t.id);
+      else if(state.affPicked.size>=MAX_PICK){status(`유형은 최대 ${MAX_PICK}개까지 고를 수 있어요.`,true);return}
+      else state.affPicked.add(t.id);
+      status(""); renderAffTypes(); saveCfg();
+    };
+    box.append(b);
+  }
+  $("#affPickedN").textContent=state.affPicked.size?`${state.affPicked.size} / ${MAX_PICK}개 선택`:`최대 ${MAX_PICK}개까지 골라주세요`;
+  updGoCount();
+}
+function setMode(m){
+  state.mode=m; setSeg("#mode",m);
+  for(const el of document.querySelectorAll(".m-normal")) el.hidden=m==="aff";
+  for(const el of document.querySelectorAll(".m-aff")) el.hidden=m!=="aff";
+  updGoCount();
+}
+bindSeg("#mode",v=>{setMode(v);saveCfg()});
+bindSeg("#affCountSeg",v=>{$("#affCount").value=v;updGoCount();saveCfg()});
+$("#affAuto").onclick=()=>{state.affPicked=new Set(affRec());renderAffTypes();saveCfg();status("내가 아는 사실과 첨부에 맞춰 유형을 골랐어요.")};
+$("#affFacts").addEventListener("input",renderAffTypes);
+$("#affMedia").addEventListener("input",renderAffTypes);
+$("#affEtc").addEventListener("input",()=>{if(state.plat==="etc"){$("#affDisc").value=affDiscFor("etc",$("#affEtc").value.trim());saveCfg()}});
+
+function buildAffPrompt(c, ids, count, extra){
+  const types=ids.map(id=>AFF_TYPES.find(t=>t.id===id)).filter(Boolean);
+  const total=types.length*count, a=c.aff;
+  return `너는 스레드에 매일 직접 글 올리는 사람이야. 광고 카피라이터가 아니다.
+아래 [계정]의 본인이 되어, 제휴 링크가 붙는 스레드 글을 "1/2 첫 글 + 2/2 답글"로 쓴다.
+독자는 광고에 지쳐 있고 낚였다고 느끼면 바로 차단한다. 진짜 그 사람이 할 법한 말만 쓴다.
+
+[말투]
+- 설명하지 말고 말해. 블로그·보고서·광고 카피 문장 금지(중요합니다·~할 수 있습니다·다양한·효과적인·첫째/둘째·결론적으로).
+- ${c.style==="monolog"?"(담담한 독백 프리셋) 마침표로 끊는 짧은 독백 허용, '~다'로 끝나는 줄은 두 줄까지.":"'~다.'로 끝나는 문어체 금지."} 반말이면 ~했어·~더라·~거든·~임·~함, 존댓말이면 ~했어요·~더라고요·~거든요(~습니다체 금지).
+- 한 줄 = 한 호흡. 접속사 대신 줄바꿈.
+
+[계정]
+- 정체성·처지: ${c.niche||"(미입력)"}${c.target?` / 독자: ${c.target}`:""}
+- 말투: ${c.tone}${styleBlock(c)}
+- ${HOOK_RULE[c.hook]||HOOK_RULE.normal} 단, 첫 글 110자·제품 이름 금지·감탄은 한 번만 규칙이 먼저다.
+
+[제품]
+- 링크 상품명(정확히): ${a.name}
+- 내가 아는 사실(경험·가격·특징): ${a.facts||"없음"}
+- 첨부 사진·영상 내용: ${a.media||"없음"}
+
+[쓸 유형] 각 유형마다 ${count}개씩, 총 ${total}개
+${types.map(t=>`■ id: ${t.id} / ${t.n} ${t.name}\n  공식: ${t.formula}\n  실제 예(문장을 그대로 쓰지 말 것): ${t.example}`).join("\n")}
+
+[1/2 첫 글 규칙 — main]
+- 40~110자, 1~4줄, 첫 줄 25자 안팎.
+- 제품 이름·브랜드·스펙·장점 나열을 쓰지 않는다. "이거", "얘"로 사진·영상에 맡긴다(카테고리 한 단어 정도는 괜찮다).
+- 링크·해시태그·"강추/인생템/역대급" 연발 금지. 감탄은 한 번만.
+- 질문으로 끝낼 땐 같은 처지 사람이 3초 안에 답할 질문 하나.
+
+[2/2 답글 규칙 — reply]
+- reply에는 본문과 이어지는 내 이유 한 줄, 또는 바로 쓸 수 있는 실제 팁(순서·양·시간)만 1~3줄 쓴다.
+- 광고 표시 문구, 링크, 상품명 줄은 쓰지 마. 앱이 reply 뒤에 "광고 표시 문구 → 상품명 → 링크" 순서로 자동으로 붙인다.
+- 쓰지 않는 문구: "너무 많이 물어봐서", "DM 폭주", "최저가", "무조건", "100%", 효과·수익 보장, 뜬금없는 "아래 링크 달게".
+
+[사실 규칙 — 가장 중요]
+- [내가 아는 사실]에 없는 사용 경험, 가족·지인 일화, 유명인 발언, 효과, 가격, 숫자를 지어내지 않는다. 필요하면 [대괄호로 무엇을 넣을지] 비워 둔다.
+- ${a.facts?"써본 경험은 [내가 아는 사실]에 있는 만큼만 쓴다.":"[내가 아는 사실]이 없음이므로 '써봤다·샀다·먹어봤다·인생템' 같은 경험 표현을 쓰지 않는다. 고민·질문·정체 묻기처럼 경험 없이도 정직하게 쓴다."}
+- 본문에서 묘사하는 제품은 링크 상품명과 같은 것이어야 한다.
+- 제품과 상관없는 분노·정치·사건·남의 사생활로 관심을 끌고 링크를 다는 글은 쓰지 않는다.
+
+[출력 형식]
+한 줄에 JSON 객체 하나씩, 총 ${total}줄. 앞뒤에 다른 말이나 코드블록 없이.
+{"structure":"유형 id","main":"1/2 첫 글(줄바꿈은 \\n)","reply":"2/2 답글 첫 1~3줄(표시 문구·상품명·링크 빼고)","tag":"주제태그","why":"독자가 멈추는 이유 / 링크를 누를 이유"}
+같은 제품으로 여러 개를 쓸 땐 유형과 첫 줄을 서로 확실히 다르게. 다 쓴 뒤 소리 내 읽고 광고처럼 들리는 문장은 친구한테 말하듯 고치고 줄인다.${extra?`\n${extra}`:""}`;
+}
+// 모델 답글 뒤에 표시 문구 → 상품명 → 링크를 코드가 붙인다(모델이 쓴 표시 문구·링크 줄은 걷어냄)
+function affFinish(o,c){
+  const a=c.aff;
+  let r=(o.reply||"").split("\n").filter(l=>!/수수료를\s*제공|https?:\/\/|\[제휴 링크\]/.test(l)&&l.trim()!==a.name.trim()).join("\n").trim();
+  o.reply=[r, a.disc, a.name+"\n"+(a.link||"[제휴 링크]")].filter(Boolean).join("\n\n");
+  o.aff={name:a.name, disc:a.disc, link:a.link, hasFacts:!!a.facts};
+  return o;
+}
+const AFF_STOP=new Set(["세트","블랙","화이트","그레이","실버","골드","베이지","네이비","대용량","정품","국내","공식","무료배송","신상","특가","단품","본품","1+1"]);
+function affNameHit(main,name){
+  const toks=(name||"").split(/[\s,()\[\]\/+·]+/).filter(t=>t.length>=2&&!AFF_STOP.has(t)&&!/^[\d.]+([a-z]+|개|입|매|구|팩|병|봉|종|장|롤)?$/i.test(t));
+  if(toks.length>1&&/^[가-힣]+$/.test(toks[toks.length-1])) toks.pop(); // 용량·단위를 뺀 마지막 한글 단어는 보통 카테고리(텀블러·블러셔)
+  const m=main.toLowerCase();
+  for(const t of toks){ if(m.includes(t.toLowerCase())) return t }
+  return "";
+}
+function affChecks(main, reply, p){
+  const a=p.aff, out=[];
+  const lines=main.split("\n").filter(l=>l.trim()); const first=(lines[0]||"").trim();
+  const len=main.replace(/\n/g,"").trim().length;
+  out.push({t:`첫 줄 ${first.length}자`, s:first.length<=30?"ok":"warn"});
+  out.push({t:`첫 글 ${len}자`, s:len<=110?"ok":"warn", alt:`첫 글 ${len}자 · 110자 넘음`});
+  const hit=affNameHit(main,a.name);
+  out.push(hit?{t:`첫 글에 상품명 ‘${hit}’`, s:"warn"}:{t:"첫 글에 상품명 없음", s:"ok"});
+  const di=reply.search(/수수료를\s*제공받/), li=reply.search(/https?:\/\/|\[제휴 링크\]/);
+  if(di<0) out.push({t:"답글에 광고 표시 문구 없음", s:"warn"});
+  else if(li>=0&&di>li) out.push({t:"표시 문구를 링크보다 앞으로", s:"warn"});
+  else out.push({t:"표시 문구 → 링크 순서", s:"ok"});
+  const all=main+"\n"+reply;
+  const ban=all.match(/너무 많이 물어봐|DM\s*폭주|디엠\s*폭주|최저가|무조건|100\s*%/i);
+  if(ban) out.push({t:`금지 문구 · ‘${ban[0]}’`, s:"warn"});
+  if(!a.hasFacts){
+    const body=main+"\n"+(a.disc?reply.split(a.disc)[0]:reply);
+    const ex=body.match(/(써\s?봤|사\s?봤|샀는데|샀어|샀음|구입했|구매했|구입함|구매함|인생템|먹어\s?봤|발라\s?봤|입어\s?봤|쓰고\s?있|쓰는\s?중|재구매|정착했)/);
+    if(ex) out.push({t:`사실 없이 경험 표현 · ‘${ex[0]}’`, s:"warn"});
+  }
+  const lecture=(all.match(/(중요합니다|필요합니다|할 수 있습니다|해야 합니다|다음과 같|첫째|둘째|결론적으로|요약하면|다양한|효과적)/g)||[]).length;
+  if(lecture) out.push({t:`설명문 말투 ${lecture}곳`, s:"warn"});
+  if(/(^|\s)#[^\s#]+/.test(all)) out.push({t:"해시태그 빼기", s:"warn"});
+  const emo=(all.match(/\p{Extended_Pictographic}/gu)||[]).length;
+  if(emo>5) out.push({t:`이모지 ${emo}개 · 5개 이내로`, s:"warn"});
+  if(/\[[^\]]+\]/.test(all)) out.push({t:"[대괄호] 채우기", s:"warn"});
+  return out;
+}
+
 /* ---------- 예시 문장 복사 점검 (6글자 이상 연속 겹침) ---------- */
 const normTxt=t=>(t||"").replace(/[\s.,!?…~'"‘’“”·\-—:;()/]/g,"");
 function grams(t,n){const g=new Set();for(let i=0;i+n<=t.length;i++){const x=t.slice(i,i+n);if(!/[\[\]]/.test(x)&&!/^[ㅋㅎㅠㅜ\d]+$/.test(x))g.add(x)}return g}
@@ -935,6 +1176,8 @@ function cfg(){
     niche:$("#niche").value.trim(), target:$("#target").value.trim(),
     topic:$("#topic").value.trim(), facts:$("#facts").value.trim(),
     tone:state.tone, style:state.style, hook:state.hook, voice:$("#voice").value.trim(),
+    mode:state.mode, affCount:Number($("#affCount").value)||1,
+    aff:{plat:state.plat, name:$("#affName").value.trim(), link:$("#affLink").value.trim(), facts:$("#affFacts").value.trim(), media:$("#affMedia").value.trim(), disc:$("#affDisc").value.trim()||affDiscFor(state.plat,$("#affEtc").value.trim())},
     count:Number($("#count").value)||2,
     goal: state.goal ? GOALS.find(g=>g.id===state.goal) : null,
     field: FIELDS.find(f=>f.id===state.field&&f.guide)||null,
@@ -1022,6 +1265,7 @@ function initial(){const s=($("#niche").value||"").trim();return s?s[0]:"나"}
 function updAvatar(){const i=initial();document.querySelectorAll(".avatar").forEach(a=>a.textContent=i)}
 function autosize(t){t.style.height="auto";t.style.height=t.scrollHeight+"px"}
 function checks(main, reply, kind, sid, p){
+  if(p?.aff) return affChecks(main, reply, p);
   const lines=main.split("\n").filter(l=>l.trim());
   const first=(lines[0]||"").trim();
   const all=main+"\n"+reply;
@@ -1096,7 +1340,8 @@ function iconBtn(icon,label,fn){
 }
 function makeCard(p, opts={}){
   if(LEGACY[p.structure]) p.structure=LEGACY[p.structure];
-  const s=STRUCTS.find(x=>x.id===p.structure)||{name:p.structure,id:p.structure,kind:"info"};
+  const at=AFF_TYPES.find(x=>x.id===p.structure);
+  const s=STRUCTS.find(x=>x.id===p.structure)||(at&&{id:at.id,name:"제휴 · "+at.name,kind:"aff"})||{name:p.structure,id:p.structure,kind:"info"};
   const card=document.createElement("article"); card.className="post-card"+(opts.fresh?" new":"");
   const head=document.createElement("div"); head.className="pc-head";
   const badge=document.createElement("span"); badge.className="badge";
@@ -1359,11 +1604,16 @@ function showFallback(prompt, msg){
 }
 $("#form").addEventListener("submit",async e=>{
   e.preventDefault();
-  const c=cfg(); const ids=[...state.picked];
-  if(!c.topic){status("이번 글 주제를 적어주세요.",true);$("#topic").focus();return}
-  if(!ids.length){status("구조를 하나 이상 골라주세요.",true);return}
+  const c=cfg(); const aff=c.mode==="aff"; const ids=aff?[...state.affPicked]:[...state.picked];
+  if(aff){
+    if(!c.aff.name){status("링크 상품명을 적어주세요.",true);$("#affName").focus();return}
+    if(!ids.length){status("유형을 하나 이상 골라주세요.",true);return}
+  }else{
+    if(!c.topic){status("이번 글 주제를 적어주세요.",true);$("#topic").focus();return}
+    if(!ids.length){status("구조를 하나 이상 골라주세요.",true);return}
+  }
   $("#tabNew").click();
-  const prompt=buildPrompt(c,ids,c.count);
+  const prompt=aff?buildAffPrompt(c,ids,c.affCount):buildPrompt(c,ids,c.count);
   const sample=await getSample();
   if(!sample){
     if(sb){
@@ -1379,8 +1629,8 @@ $("#form").addEventListener("submit",async e=>{
   const feed=$("#feed");
   for(const ex of feed.querySelectorAll(".post-card")) if(ex.querySelector(".example")) ex.remove();
   const anchor=document.createElement("div"); feed.prepend(anchor);
-  let pending="", n=0; const total=ids.length*c.count;
-  const add=o=>{ if(!o) return; n++; o.style=c.style; o.hook=c.hook; anchor.before(makeCard(o,{fresh:true})); status(`${n} / ${total}개 쓰는 중`,false,true) };
+  let pending="", n=0; const total=ids.length*(aff?c.affCount:c.count);
+  const add=o=>{ if(!o) return; n++; o.style=c.style; o.hook=c.hook; if(aff) affFinish(o,c); anchor.before(makeCard(o,{fresh:true})); status(`${n} / ${total}개 쓰는 중`,false,true) };
   ctl=new AbortController(); setBusy(true); status("구조를 읽고 있어요 · 보통 20~60초",false,true); toResults();
   try{
     await sample(prompt,{signal:ctl.signal,cache:false,onText:({delta})=>{
@@ -1400,18 +1650,19 @@ $("#stop").onclick=()=>ctl?.abort();
 async function regenOne(p, card, btn, mode){
   const sample=await getSample(); if(!sample){status("이 화면에서는 다시 쓰기를 할 수 없어요.",true);return}
   const c=cfg(); if(!c.topic) c.topic=p.topic||"";
+  if(p.aff&&!c.aff.name){status("제휴 글을 다시 쓰려면 ‘링크 상품명’을 채워주세요.",true);return}
   if(p.style) c.style=p.style;
   if(mode) c.hook=mode; else if(p.hook) c.hook=p.hook;
   const extra = mode
     ? `앞서 쓴 아래 글을 같은 구조·같은 내용으로, 훅만 ${mode==="strong"?"더 세게(첫 줄 훅 요소 3개 이상)":"더 담백하게(감탄·과장·유행어 빼고 장면 위주)"} 다시 써. 문장을 그대로 반복하지 마.\n---\n${p.main}\n---`
     : `앞서 쓴 아래 글과 훅·각도가 완전히 다르게 써.\n---\n${p.main}\n---`;
-  const prompt=buildPrompt(c,[p.structure],1,extra);
+  const prompt=p.aff?buildAffPrompt(c,[p.structure],1,extra):buildPrompt(c,[p.structure],1,extra);
   const lab=btn.querySelector("span"); const old=lab.textContent;
   btn.disabled=true; lab.textContent="다시 쓰는 중…";
   try{
     const {text}=await sample(prompt,{cache:false});
     const o=text.split("\n").map(parseLine).find(Boolean);
-    if(o){ o.style=c.style; o.hook=c.hook; card.replaceWith(makeCard(o,{fresh:true})); status("다시 썼어요."); }
+    if(o){ o.style=c.style; o.hook=c.hook; if(p.aff) affFinish(o,c); card.replaceWith(makeCard(o,{fresh:true})); status("다시 썼어요."); }
     else { status("결과를 읽지 못했어요. 다시 눌러주세요.",true); btn.disabled=false; lab.textContent=old; }
   }catch(err){ status(errText(err),true); btn.disabled=false; lab.textContent=old; }
 }
@@ -1427,7 +1678,7 @@ const EXAMPLES=[
    reply:"",
    why:"특별한 지식 없이 자기 경험 하나로 답할 수 있고, 답글이 모이면 그 자체로 추천 모음이 돼요."},
 ];
-loadCfg(); renderStyles(); updVoiceState(); renderFields(); renderGoals(); renderStructs(); updSavedN(); renderPresets();
+loadCfg(); renderStyles(); updVoiceState(); renderAffPlat(false); renderAffTypes(); setMode(state.mode); renderFields(); renderGoals(); renderStructs(); updSavedN(); renderPresets();
 for(const ex of EXAMPLES) $("#feed").append(makeCard(ex));
 const lastTab=store.get("tw_tab","tabNew"); if(TABS[lastTab]&&lastTab!=="tabNew") $("#"+lastTab).click();
 </script>
