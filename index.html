@@ -276,7 +276,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
 
 <header class="appbar gutter">
   <div class="inner">
-    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.3</span></div>
+    <div class="brand"><img src="assets/mark.png" alt=""><b>스레드 반응글 작성기</b><span class="ver">v4.31</span></div>
     <button type="button" class="acct-btn" id="acctBtn" hidden>
       <span class="av" id="acctAv">?</span><span class="t" id="acctBtnT">로그인</span><span class="q" id="acctBtnQ"></span>
     </button>
@@ -317,7 +317,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
           <span class="label" id="modeLbl">글 종류</span>
           <div class="seg" role="group" aria-labelledby="modeLbl" id="mode">
             <button type="button" data-v="normal" aria-pressed="true">일반 글</button>
-            <button type="button" data-v="aff" aria-pressed="false">제휴 글</button>
+            <button type="button" data-v="aff" aria-pressed="false">쿠팡파트너스</button>
           </div>
         </div>
       </section>
@@ -444,7 +444,7 @@ dialog::backdrop{background:rgba(13,17,29,.45);backdrop-filter:blur(2px)}
         <div class="step-h"><span class="n">3</span><h2>유형</h2><span class="aside" id="affPickedN"></span></div>
         <div class="aff-tools">
           <button type="button" class="btn" id="affAuto">자동 추천</button>
-          <p class="hint">제휴 글은 최근 글 3개 중 1개 이하로 섞어 올리는 게 좋아요.</p>
+          <p class="hint">쿠팡파트너스 글은 최근 글 3개 중 1개 이하로 섞어 올리는 게 좋아요.</p>
         </div>
         <div class="structs" id="affTypes"></div>
         <div class="row2" style="grid-template-columns:auto 1fr;align-items:center">
@@ -1650,7 +1650,7 @@ $("#stop").onclick=()=>ctl?.abort();
 async function regenOne(p, card, btn, mode){
   const sample=await getSample(); if(!sample){status("이 화면에서는 다시 쓰기를 할 수 없어요.",true);return}
   const c=cfg(); if(!c.topic) c.topic=p.topic||"";
-  if(p.aff&&!c.aff.name){status("제휴 글을 다시 쓰려면 ‘링크 상품명’을 채워주세요.",true);return}
+  if(p.aff&&!c.aff.name){status("쿠팡파트너스 글을 다시 쓰려면 ‘링크 상품명’을 채워주세요.",true);return}
   if(p.style) c.style=p.style;
   if(mode) c.hook=mode; else if(p.hook) c.hook=p.hook;
   const extra = mode
